@@ -125,7 +125,13 @@ with TAB2:
 
     if st.session_state.wiz_draft:
         st.markdown("### Draft")
-        st.text_area("", value=st.session_state.wiz_draft, height=320, key="wiz_draft_editor")
+        st.text_area(
+            "Draft",
+            value=st.session_state.wiz_draft,
+            height=320,
+            key="wiz_draft_editor",
+            label_visibility="collapsed",
+        )
         st.session_state.wiz_draft = st.session_state.wiz_draft_editor
 
 with TAB3:
@@ -238,7 +244,12 @@ with TAB4:
 
     if st.session_state.wiz_pack:
         st.markdown("### Output")
-        st.text_area("", value=st.session_state.wiz_pack, height=360)
+        st.text_area(
+            "Campaign pack output",
+            value=st.session_state.wiz_pack,
+            height=360,
+            label_visibility="collapsed",
+        )
 
         # Docx
         doc = Document()

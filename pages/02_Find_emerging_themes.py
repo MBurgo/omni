@@ -162,7 +162,14 @@ def _render_chatkit(query: str, trends_q: str) -> None:
     # Prompt builder
     st.caption("Prompt")
     default_prompt = st.session_state.get("futurist_agent_prompt") or _default_agent_prompt(query)
-    agent_prompt = st.text_area("", value=default_prompt, height=160, label_visibility="collapsed")
+    # Streamlit discourages empty labels (and may error in the future), so keep
+    # a non-empty label but hide it.
+    agent_prompt = st.text_area(
+        "Agent prompt",
+        value=default_prompt,
+        height=160,
+        label_visibility="collapsed",
+    )
 
     colX, colY, colZ = st.columns([1, 1, 2])
     with colX:
@@ -195,8 +202,22 @@ def _render_chatkit(query: str, trends_q: str) -> None:
             with st.status("Collecting signals...", expanded=False):
                 d = collect_signals(query=query.strip(), trends_query_or_topic_id=(trends_q.strip() or None))
             # Keep it compact: pass the full JSON but let the workflow decide.
+            # `collect_signals` returns a dataclass (SignalsData). Convert to a
+            # JSON-serializable dict before embedding into the prompt.
+            try:
+                from dataclasses import asdict
+
+                signals_obj = asdict(d)
+            except Exception:
+                # Best-effort fallback for other object types.
+                signals_obj = getattr(d, "__dict__", d)
+
             prompt = _default_agent_prompt(query)
-            prompt += "\n\nOptional input signals (JSON):\n" + json.dumps(d, ensure_ascii=False)
+            prompt += "\n\nOptional input signals (JSON):\n" + json.dumps(
+                signals_obj,
+                ensure_ascii=False,
+                default=str,
+            )
             st.session_state["futurist_agent_prompt"] = prompt
             st.rerun()
 
