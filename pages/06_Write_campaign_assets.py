@@ -10,7 +10,7 @@ from ui.branding import apply_branding
 from ui.layout import project_banner, require_project
 from storage.store import save_artifact
 
-st.set_page_config(page_title="Copywriter", page_icon="✍️", layout="wide")
+st.set_page_config(page_title="Copywriter", page_icon="✍️", layout="wide", initial_sidebar_state="collapsed")
 apply_branding()
 
 st.title("✍️ Copywriter")
@@ -47,7 +47,15 @@ with st.sidebar:
     model = st.selectbox("Model", options=["gpt-4o", "gpt-4o-mini"], index=0)
 
 # Tabs
-TAB_GEN, TAB_REVISE, TAB_ADAPT = st.tabs(["Generate", "Revise", "Localise"])
+#
+# Home tiles can set st.session_state["copywriter_mode"] to choose the first visible tab.
+# (Streamlit tabs always default to the first tab.)
+mode = (st.session_state.get("copywriter_mode") or "generate").lower().strip()
+
+if mode == "adapt":
+    TAB_ADAPT, TAB_GEN, TAB_REVISE = st.tabs(["Localise", "Generate", "Revise"])
+else:
+    TAB_GEN, TAB_REVISE, TAB_ADAPT = st.tabs(["Generate", "Revise", "Localise"])
 
 # --- Generate ---
 with TAB_GEN:
