@@ -70,7 +70,28 @@ with colA:
 with colB:
     brief_model = st.selectbox("Brief extraction model", options=["gpt-4o-mini", "gpt-4o"], index=0)
 with colC:
-    moderator_model = st.selectbox("Moderator model", options=["gemini-1.5-pro", "gemini-1.5-flash"], index=0)
+    _moderator_choice = st.selectbox(
+        "Moderator model",
+        options=[
+            "gemini-2.5-pro",
+            "gemini-2.5-flash",
+            "gemini-1.5-pro",
+            "gemini-1.5-flash",
+            "Custom...",
+        ],
+        index=0,
+        help="Gemini is preferred for the moderator. If Gemini isn't configured, the app falls back to OpenAI.",
+    )
+
+    if _moderator_choice == "Custom...":
+        moderator_model = st.text_input(
+            "Custom Gemini model id",
+            value=st.session_state.get("moderator_model_custom", "gemini-2.5-pro"),
+            help="Paste the exact model id your Google API key has access to.",
+        ).strip() or "gemini-2.5-pro"
+        st.session_state["moderator_model_custom"] = moderator_model
+    else:
+        moderator_model = _moderator_choice
 
 if st.button("Run focus group", type="primary"):
     if not creative.strip():

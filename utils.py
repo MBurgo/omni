@@ -54,6 +54,7 @@ def get_secret(path: str, default: Optional[str] = None) -> Optional[str]:
       - OPENAI_API_KEY
       - SERPAPI_API_KEY
     """
+
     v = _get_from_secrets(path)
     if v is not None and str(v).strip():
         return str(v).strip()
