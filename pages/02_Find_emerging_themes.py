@@ -21,13 +21,25 @@ project_banner()
 pid = require_project()
 
 # --- Mode ---
+# Prefer the embedded app (if configured) because it's the most reliable way
+# to reuse an existing deployed workflow UI inside Streamlit.
+_embed_cfg = bool(get_secret("futurist.embed_url") or get_secret("FUTURIST_EMBED_URL"))
+_wf_cfg = bool(get_secret("futurist.workflow_id") or get_secret("FUTURIST_WORKFLOW_ID"))
+_default_mode_index = 1 if _embed_cfg else (2 if _wf_cfg else 0)
+
 mode = st.radio(
     "How do you want to run this?",
-    options=["Structured output", "Agent workflow (ChatKit)"],
+    options=[
+        "Structured output",
+        "Agent workflow (Embedded app)",
+        "Agent workflow (ChatKit)",
+    ],
+    index=_default_mode_index,
     horizontal=True,
     help=(
         "Structured output uses the portal's own prompt-based horizon scan. "
-        "Agent workflow embeds an OpenAI-hosted Agent Builder workflow via ChatKit (requires a workflow id)."
+        "Embedded app iframes your published AgentKit/ChatKit app (fastest + most reliable, but limited portal handoff). "
+        "ChatKit embeds an OpenAI-hosted Agent Builder workflow directly in Streamlit (requires a workflow id)."
     ),
 )
 
@@ -124,6 +136,73 @@ def _default_agent_prompt(q: str) -> str:
         "(5) 3 campaign ideas per theme (hook + angle + channel).\n\n"
         f"Query: {q.strip()}"
     )
+
+
+def _render_embedded_app(query: str) -> None:
+    """Embed a separately hosted AgentKit/ChatKit app via iframe.
+
+    This is the most reliable way to reuse an existing deployed app, but it
+    won't automatically hand structured outputs back into the portal without
+    additional cross-origin messaging.
+    """
+
+    st.subheader("Agent workflow")
+
+    url = (
+        get_secret("futurist.embed_url")
+        or get_secret("FUTURIST_EMBED_URL")
+        or "https://openai-chatkit-starter-app-opal-xi.vercel.app/"
+    )
+
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        height = st.slider("Embed height", min_value=560, max_value=1200, value=860, step=20)
+    with col2:
+        st.markdown(f"Open in new tab: {url}")
+
+    st.caption(
+        "Note: embedding is fast, but the portal cannot automatically read the output back from the iframe. "
+        "Use the optional paste box below if you want to save results to this project."
+    )
+
+    # Helpful prompt context so users can paste into the embedded app (if needed).
+    with st.expander("Optional: suggested prompt to use in the embedded app", expanded=False):
+        st.code(_default_agent_prompt(query), language="text")
+
+    # Render the iframe.
+    # If the embedded app has a restrictive CSP or X-Frame-Options, the browser
+    # may block it (you'll see a 'refused to connect' message).
+    components.iframe(url, height=int(height), scrolling=True)
+
+    # Optional capture for persistence.
+    with st.expander("Optional: paste results here to save to the project library", expanded=False):
+        pasted = st.text_area(
+            "Paste output (JSON or text)",
+            value="",
+            height=180,
+            placeholder="Paste the workflow output here to save it into the portal library...",
+        )
+        if st.button("Save pasted output", type="primary"):
+            content_json = None
+            content_text = pasted.strip()
+            if content_text:
+                try:
+                    parsed = json.loads(content_text)
+                    if isinstance(parsed, dict):
+                        content_json = parsed
+                        content_text = ""
+                except Exception:
+                    pass
+            save_artifact(
+                pid,
+                type="signals_horizon_agentkit",
+                title=f"AgentKit horizon scan: {query.strip()}",
+                content_json=content_json,
+                content_text=content_text,
+                metadata={"query": query.strip(), "embed_url": url},
+            )
+            st.success("Saved to Library.")
+            st.rerun()
 
 
 def _render_chatkit(query: str, trends_q: str) -> None:
@@ -249,6 +328,10 @@ def _render_chatkit(query: str, trends_q: str) -> None:
 out = st.session_state.get("horizon_json")
 
 # Render based on mode
+if mode == "Agent workflow (Embedded app)":
+    _render_embedded_app(query=query)
+    st.stop()
+
 if mode == "Agent workflow (ChatKit)":
     _render_chatkit(query=query, trends_q=trends_q)
     st.stop()
