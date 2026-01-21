@@ -5,18 +5,46 @@ from typing import Optional
 
 import streamlit as st
 
-from storage.store import get_current_project_id, get_project, list_projects, set_current_project
+from storage.store import create_project, get_current_project_id, list_projects, set_current_project
+
+
+DEFAULT_PROJECT_NAME = "Default"
+DEFAULT_PROJECT_DESCRIPTION = "Auto-created project"
+
+
+def _ensure_default_project() -> str:
+    """Ensure the portal always has a usable project selected.
+
+    Option A: If no project exists yet, automatically create a
+    lightweight default project and select it.
+
+    Returns the current project_id.
+    """
+
+    # Fast path: a valid current project is already selected.
+    current = get_current_project_id()
+    projects = list_projects()
+
+    if not projects:
+        p = create_project(name=DEFAULT_PROJECT_NAME, description=DEFAULT_PROJECT_DESCRIPTION)
+        set_current_project(p.id)
+        return p.id
+
+    if current and any(p.id == current for p in projects):
+        return current
+
+    # Fall back to the most recently updated project (list_projects is ordered by updated_at DESC).
+    set_current_project(projects[0].id)
+    return projects[0].id
 
 
 def project_banner() -> Optional[str]:
-    """Render a compact project selector banner. Return selected project_id or None."""
+    """Render a compact project selector banner. Return selected project_id."""
+
+    # Ensure there's always at least one project so the portal can run.
+    current = _ensure_default_project()
+
     projects = list_projects()
-    current = get_current_project_id()
-
-    if not projects:
-        st.info("No projects yet. Create one in the Projects page.")
-        return None
-
     id_to_name = {p.id: p.name for p in projects}
 
     default_index = 0
@@ -45,17 +73,12 @@ def project_banner() -> Optional[str]:
 
 
 def require_project() -> str:
-    pid = get_current_project_id()
-    if pid:
-        return pid
+    """Return the selected project_id.
 
-    projects = list_projects()
-    if projects:
-        set_current_project(projects[0].id)
-        return projects[0].id
+    With Option A enabled, this will auto-create a default project if needed.
+    """
 
-    st.warning("Create a project first (Projects page).")
-    st.stop()
+    return _ensure_default_project()
 
 
 def human_time(ts: float) -> str:

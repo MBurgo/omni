@@ -1,6 +1,6 @@
 import streamlit as st
 
-from storage.store import get_current_project_id, list_projects, set_current_project
+from storage.store import create_project, get_current_project_id, list_projects, set_current_project
 from ui.branding import apply_branding, render_footer
 
 st.set_page_config(
@@ -11,17 +11,15 @@ st.set_page_config(
 )
 apply_branding()
 
-# --- Ensure a project is selected (kept in the sidebar so the main canvas matches the screenshots) ---
+# --- Option A: Auto-create a default project so the portal can run immediately ---
 projects = list_projects()
 if not projects:
-    st.markdown("<div class='hero-title'>Hi, Fool. What’s your objective today?</div>", unsafe_allow_html=True)
-    st.info("No projects yet. Create one first.")
-    st.page_link("pages/00_Projects.py", label="Create a project", icon="📁")
-    render_footer()
-    st.stop()
+    p = create_project(name="Default", description="Auto-created project")
+    projects = [p]
+    set_current_project(p.id)
 
 cur = get_current_project_id()
-if not cur:
+if not cur or not any(p.id == cur for p in projects):
     set_current_project(projects[0].id)
     cur = projects[0].id
 
@@ -96,7 +94,7 @@ TILES = [
         None,
     ),
     (
-        "Ask our AI investing personas their thoughts about marketing/product",
+        "Ask our AI Personas brand, marketing or product-related questions",
         "pages/03_Ask_a_persona.py",
         None,
     ),
