@@ -22,6 +22,13 @@ except Exception:  # pragma: no cover
 
 from ui.branding import apply_branding
 
+try:
+    import gspread
+    from google.oauth2.service_account import Credentials
+except Exception:  # pragma: no cover
+    gspread = None
+    Credentials = None
+
 
 def _get_from_secrets(path: str) -> Optional[Any]:
     """Get a value from st.secrets using dot-separated path.
@@ -100,3 +107,29 @@ def get_gemini_client() -> Optional[Any]:
 
 def get_serpapi_api_key() -> Optional[str]:
     return get_secret("serpapi.api_key") or get_secret("SERPAPI_API_KEY")
+
+
+def get_gspread_client() -> Optional[Any]:
+    """Return an authorised gspread client if configured, else None.
+
+    Expects a `service_account` object in Streamlit secrets that contains the
+    JSON fields for a Google service account.
+    """
+
+    if gspread is None or Credentials is None:
+        return None
+
+    sa = _get_from_secrets("service_account")
+    if not sa:
+        return None
+
+    scope = [
+        "https://spreadsheets.google.com/feeds",
+        "https://www.googleapis.com/auth/drive",
+    ]
+
+    try:
+        creds = Credentials.from_service_account_info(sa, scopes=scope)
+        return gspread.authorize(creds)
+    except Exception:
+        return None
