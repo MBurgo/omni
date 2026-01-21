@@ -23,18 +23,8 @@ with st.sidebar:
     st.divider()
     st.markdown("## Settings")
 
-    st.session_state.setdefault("signals_query", "ASX 200")
-    st.session_state.setdefault("signals_trends_q", "")
     st.session_state.setdefault("signals_model", "gpt-4o")
     st.session_state.setdefault("signals_cooldown_h", 3)
-
-    query = st.text_input("Query", value=st.session_state.get("signals_query", "ASX 200"), key="signals_query")
-    trends_q = st.text_input(
-        "Trends query or topic id (optional)",
-        value=st.session_state.get("signals_trends_q", ""),
-        key="signals_trends_q",
-        placeholder="e.g. /m/0bl5c2 or 'ASX 200'",
-    )
 
     model = st.selectbox(
         "Model",
@@ -51,6 +41,17 @@ with st.sidebar:
         key="signals_cooldown_h",
         help="Reuse the last run within this window to avoid hammering SerpAPI / OpenAI.",
     )
+
+# Fixed defaults (no user input on this page)
+DEFAULT_QUERY = "ASX 200"
+DEFAULT_TRENDS_TOPIC_ID = "/m/0bl5c2"
+
+# Backwards compatibility: if older sessions have values set, force them back to defaults.
+st.session_state["signals_query"] = DEFAULT_QUERY
+st.session_state["signals_trends_q"] = DEFAULT_TRENDS_TOPIC_ID
+
+query = DEFAULT_QUERY
+trends_q = DEFAULT_TRENDS_TOPIC_ID
 
 pid = require_project()
 
