@@ -1,8 +1,6 @@
 import json
-from io import BytesIO
 
 import streamlit as st
-from docx import Document
 
 from engines.audience import focus_group_debate
 from engines.creative import COUNTRY_RULES, LENGTH_RULES, generate_copy
@@ -10,6 +8,7 @@ from engines.personas import load_personas, persona_label
 from engines.signals import collect_signals, summarise_daily_brief
 from storage.store import save_artifact
 from ui.branding import apply_branding
+from ui.export import create_docx_from_markdown
 from ui.layout import project_banner, require_project
 
 st.set_page_config(
@@ -261,12 +260,8 @@ with TAB4:
             label_visibility="collapsed",
         )
 
-        # Docx
-        doc = Document()
-        for line in st.session_state.wiz_pack.splitlines():
-            doc.add_paragraph(line)
-        buf = BytesIO()
-        doc.save(buf)
+        # Docx (markdown-aware)
+        buf = create_docx_from_markdown(st.session_state.wiz_pack)
         st.download_button(
             "Download pack as .docx",
             data=buf.getvalue(),

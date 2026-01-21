@@ -44,3 +44,25 @@ def set_copywriter_seed(
 
     if metadata is not None:
         st.session_state["seed_metadata"] = metadata
+
+
+def set_headline_test_seed(
+    *,
+    headlines: list[str],
+    context: str = "",
+    source: str = "",
+) -> None:
+    """Seed the Headline Test page.
+
+    The Headline Test page reads:
+      - headlines_raw
+      - headline_context
+
+    We store these under session keys that the page can consume on load.
+    """
+
+    hs = [str(h).strip() for h in (headlines or []) if str(h).strip()]
+    st.session_state["seed_headlines_raw"] = "\n".join(hs)
+    st.session_state["seed_headline_context"] = (context or "").strip()
+    if source:
+        st.session_state["seed_source"] = str(source)

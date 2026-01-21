@@ -46,7 +46,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 st.markdown(
-    "<div class='page-subtitle'>This tool pulls live data from Google News and Google Trends to see what is making news in the financial markets right now. </div>",
+    "<div class='page-subtitle'>Click <b>Start Run</b> to run a <b>fresh</b> scrape (Google News + Top Stories + Google Trends) and generate <b>5 detailed briefs</b> via the Google Sheets step2 summariser.</div>",
     unsafe_allow_html=True,
 )
 

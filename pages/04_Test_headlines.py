@@ -139,16 +139,24 @@ st.markdown(
 )
 
 # Inputs
+# Support seeding from other tools (e.g., Copywriter variants)
+if "seed_headlines_raw" in st.session_state and st.session_state.get("seed_headlines_raw"):
+    st.session_state["headlines_raw"] = st.session_state.pop("seed_headlines_raw")
+if "seed_headline_context" in st.session_state and st.session_state.get("seed_headline_context"):
+    st.session_state["headline_context"] = st.session_state.pop("seed_headline_context")
+
 headlines_raw = st.text_area(
     "Headlines (one per line)",
     height=200,
     placeholder="1) ...\n2) ...\n3) ...",
+    key="headlines_raw",
 )
 
 context = st.text_area(
     "Context (optional)",
     height=120,
     placeholder="What is the offer / product? Any constraints or must-say details?",
+    key="headline_context",
 )
 
 # Preview parsed headlines to drive UI
