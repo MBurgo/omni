@@ -76,8 +76,8 @@ st.markdown(
     """
 <div class='page-subtitle'>
 Our AI personas are built using real Australian investor demographics and traits. Ask them any questions regarding their
-feelings, motivations or opinions. Our AI personas will take a “Believer vs Skeptic” debate approach, and our moderator will
-scan their arguments for insights.. Use this to pressure test headlines, emails, sales pages, and ad copy.
+feelings, motivations or opinions. The personas selected will take a “Believer vs Skeptic” debate approach, and our moderator will
+scan their arguments for insights. Use this to pressure test headlines, emails, sales pages, and ad copy.
 </div>
 """,
     unsafe_allow_html=True,
