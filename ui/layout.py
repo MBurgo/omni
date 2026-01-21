@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import time
 from typing import Optional
 
@@ -11,6 +12,37 @@ from storage.store import create_project, get_current_project_id, list_projects,
 DEFAULT_PROJECT_NAME = "Default"
 DEFAULT_PROJECT_DESCRIPTION = "Auto-created project"
 
+# Single-project mode
+# -------------------
+# The portal's storage layer supports multiple "projects" so artifacts can be separated
+# by campaign/workstream. For this hub, we can force a simpler UX: operate in a single
+# project (the Default project) and hide project switching controls.
+#
+# You can re-enable multi-project mode later by setting PORTAL_SINGLE_PROJECT_MODE=0.
+SINGLE_PROJECT_MODE = os.getenv("PORTAL_SINGLE_PROJECT_MODE", "1") not in ("0", "false", "False")
+
+
+def _ensure_single_project() -> str:
+    """Ensure a single "Default" project exists and is selected.
+
+    When SINGLE_PROJECT_MODE is enabled, the portal behaves like a single workspace.
+    We keep the storage schema unchanged, but always select the Default project.
+    """
+
+    projects = list_projects()
+
+    # Prefer an existing project named "Default" (if multiple exist, list_projects is ordered
+    # by updated_at DESC, so the first match is the most recently used).
+    for p in projects:
+        if (p.name or "").strip() == DEFAULT_PROJECT_NAME:
+            set_current_project(p.id)
+            return p.id
+
+    # None exists yet - create it.
+    p = create_project(name=DEFAULT_PROJECT_NAME, description=DEFAULT_PROJECT_DESCRIPTION)
+    set_current_project(p.id)
+    return p.id
+
 
 def _ensure_default_project() -> str:
     """Ensure the portal always has a usable project selected.
@@ -20,6 +52,9 @@ def _ensure_default_project() -> str:
 
     Returns the current project_id.
     """
+
+    if SINGLE_PROJECT_MODE:
+        return _ensure_single_project()
 
     # Fast path: a valid current project is already selected.
     current = get_current_project_id()
@@ -112,26 +147,31 @@ def hub_nav(
     """
 
     current = _ensure_default_project()
-    projects = list_projects()
-    id_to_name = {p.id: p.name for p in projects}
 
-    default_index = 0
-    if current and current in id_to_name:
-        default_index = list(id_to_name.keys()).index(current)
+    # In single-project mode, always hide the project selector regardless of the flag.
+    if SINGLE_PROJECT_MODE:
+        show_project_selector = False
 
-    # Layout: Back link | Project selector
-    cols = st.columns([1.6, 4.4], gap="small")
+    rendered_any = False
 
-    with cols[0]:
-        if show_home_link:
-            # Streamlit renders this as an inline link-style control.
-            # Keep this compact: no icons/emojis and a short label.
-            st.page_link("Home.py", label="Back to hub")
-        else:
-            st.write("")
+    if show_project_selector:
+        projects = list_projects()
+        id_to_name = {p.id: p.name for p in projects}
 
-    with cols[1]:
-        if show_project_selector:
+        default_index = 0
+        if current and current in id_to_name:
+            default_index = list(id_to_name.keys()).index(current)
+
+        # Layout: Back link | Project selector
+        cols = st.columns([1.6, 4.4], gap="small")
+        with cols[0]:
+            if show_home_link:
+                st.page_link("Home.py", label="Back to hub")
+                rendered_any = True
+            else:
+                st.write("")
+
+        with cols[1]:
             sel = st.selectbox(
                 "Project",
                 options=list(id_to_name.keys()),
@@ -143,14 +183,21 @@ def hub_nav(
             if sel != current:
                 set_current_project(sel)
                 current = sel
+        rendered_any = True
+    else:
+        # Layout: Back link only
+        if show_home_link:
+            st.page_link("Home.py", label="Back to hub")
+            rendered_any = True
         else:
             st.write("")
 
-    # Keep the separator subtle and tight to reduce vertical footprint.
-    st.markdown(
-        "<hr style='margin: 0.35rem 0 0.9rem 0; border: none; border-top: 1px solid rgba(255,255,255,0.12);' />",
-        unsafe_allow_html=True,
-    )
+    if rendered_any:
+        # Keep the separator subtle and tight to reduce vertical footprint.
+        st.markdown(
+            "<hr style='margin: 0.25rem 0 0.7rem 0; border: none; border-top: 1px solid rgba(255,255,255,0.12);' />",
+            unsafe_allow_html=True,
+        )
     return current
 
 
