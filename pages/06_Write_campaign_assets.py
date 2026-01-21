@@ -61,7 +61,7 @@ st.session_state.setdefault("cw_auto_qa", True)
 # Hero
 st.markdown("<div class='page-title'>Brief our AI copywriter to deliver campaign assets</div>", unsafe_allow_html=True)
 st.markdown(
-    "<div class='page-subtitle'>Generate campaign copy from a hook + brief, revise an existing draft, or localise copy from another market. Tip: You can expand the "Copy Settings" accordion to dial up/down copy traits on a granular level.</div>", unsafe_allow_html=True,
+    "<div class='page-subtitle'>Generate campaign copy from a hook + brief, revise an existing draft, or localise copy from another market. Tip: You can expand the 'Copy Settings' accordion to dial up/down copy traits on a granular level.</div>", unsafe_allow_html=True,
 )
 
 if seed_source:
