@@ -5,7 +5,7 @@ import streamlit as st
 from engines.sheets_briefs import convert_single_asterisk_to_bold, parse_step2_report
 from storage.store import save_artifact
 from ui.branding import apply_branding
-from ui.layout import project_banner, require_project
+from ui.layout import hub_nav
 from ui.seed import set_copywriter_seed
 
 st.set_page_config(
@@ -16,16 +16,7 @@ st.set_page_config(
 )
 apply_branding()
 
-# --- Sidebar: project + fixed config (keeps the main page clean like the screenshots) ---
-with st.sidebar:
-    project_banner(compact=True)
-
-    st.divider()
-    st.markdown("## Run configuration")
-    st.caption("This page runs a fixed scrape + summary pipeline.")
-    st.write("**Query:** ASX 200")
-    st.write("**Trends topic:** /m/0bl5c2")
-    st.caption("Click **Start Run** to scrape and generate a fresh briefing.")
+pid = hub_nav()
 
 # Fixed defaults (no user input on this page)
 DEFAULT_QUERY = "ASX 200"
@@ -38,13 +29,18 @@ st.session_state["signals_trends_q"] = DEFAULT_TRENDS_TOPIC_ID
 query = DEFAULT_QUERY
 trends_q = DEFAULT_TRENDS_TOPIC_ID
 
-pid = require_project()
-
 # --- Hero (matches screenshot copy) ---
 st.markdown(
     "<div class='page-title'>Find out what’s making news in the financial markets</div>",
     unsafe_allow_html=True,
 )
+
+# Fixed config (kept visible without relying on the sidebar)
+with st.expander("Run configuration", expanded=False):
+    st.caption("This page runs a fixed scrape + summary pipeline.")
+    st.write("**Query:** ASX 200")
+    st.write("**Trends topic:** /m/0bl5c2")
+    st.caption("Click **Start Run** to scrape and generate a fresh briefing.")
 st.markdown(
     "<div class='page-subtitle'>Click <b>Start Run</b> to run a <b>fresh</b> scrape (Google News + Top Stories + Google Trends) and generate <b>5 detailed briefs</b> via the Google Sheets step2 summariser.</div>",
     unsafe_allow_html=True,

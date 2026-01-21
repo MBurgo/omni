@@ -9,7 +9,7 @@ from engines.llm import query_openai
 from engines.personas import Persona, load_personas
 from storage.store import save_artifact
 from ui.branding import FOOL_COLORS, apply_branding
-from ui.layout import project_banner, require_project
+from ui.layout import hub_nav
 
 
 def _ensure_list(x: Any) -> List[Any]:
@@ -270,18 +270,31 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Sidebar configuration (keeps the main canvas clean)
-with st.sidebar:
-    project_banner(compact=True)
+pid = hub_nav()
 
-    st.divider()
-    st.markdown("## Settings")
-    model = st.selectbox("Model", options=["gpt-4o-mini", "gpt-4o"], index=0)
-    temperature = st.slider("Temperature", min_value=0.0, max_value=1.2, value=0.7, step=0.1)
-    max_batch = st.slider("Max personas for batch / focus group", min_value=2, max_value=15, value=8)
+# Settings (kept on the main page; sidebar is hidden)
+st.session_state.setdefault("persona_model", "gpt-4o-mini")
+st.session_state.setdefault("persona_temperature", 0.7)
+st.session_state.setdefault("persona_max_batch", 8)
+
+with st.expander("Settings", expanded=False):
+    model = st.selectbox("Model", options=["gpt-4o-mini", "gpt-4o"], index=0, key="persona_model")
+    temperature = st.slider(
+        "Temperature",
+        min_value=0.0,
+        max_value=1.2,
+        value=float(st.session_state.get("persona_temperature", 0.7)),
+        step=0.1,
+        key="persona_temperature",
+    )
+    max_batch = st.slider(
+        "Max personas for batch / focus group",
+        min_value=2,
+        max_value=15,
+        value=int(st.session_state.get("persona_max_batch", 8)),
+        key="persona_max_batch",
+    )
     st.caption("Personas respond in-character. They do not provide financial advice.")
-
-pid = require_project()
 
 # Hero
 st.markdown(

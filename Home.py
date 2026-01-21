@@ -1,7 +1,7 @@
 import streamlit as st
 
 from ui.branding import apply_branding
-from ui.layout import project_banner, require_project
+from ui.layout import hub_nav
 
 st.set_page_config(
     page_title="Burgo’s AI Hub",
@@ -11,11 +11,8 @@ st.set_page_config(
 )
 apply_branding()
 
-# Ensure the portal always has a project selected (Option A: auto-create Default).
-require_project()
-
-with st.sidebar:
-    project_banner(compact=True)
+# Top navigation (includes the "Back to hub homepage" link for consistent placement across pages).
+hub_nav()
 
 # --- Page-specific CSS to turn secondary buttons into the home tiles ---
 st.markdown(

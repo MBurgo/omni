@@ -95,6 +95,73 @@ def project_banner(compact: bool = False) -> Optional[str]:
     return current
 
 
+def hub_nav(
+    *,
+    show_home_link: bool = True,
+    show_project_selector: bool = True,
+    show_projects_link: bool = True,
+    show_library_link: bool = True,
+) -> str:
+    """Render a lightweight top navigation bar for all pages.
+
+    The portal intentionally hides Streamlit's sidebar navigation. This helper provides:
+    - A "Back to hub homepage" link
+    - A project selector (so users can switch context without a sidebar)
+    - Quick links to Projects and Library
+
+    Returns the current project_id.
+    """
+
+    current = _ensure_default_project()
+    projects = list_projects()
+    id_to_name = {p.id: p.name for p in projects}
+
+    default_index = 0
+    if current and current in id_to_name:
+        default_index = list(id_to_name.keys()).index(current)
+
+    # Layout: Home | Project selector | Projects | Library
+    cols = st.columns([2.0, 4.0, 1.3, 1.3], gap="small")
+
+    with cols[0]:
+        if show_home_link:
+            # Streamlit renders this as an inline link-style control.
+            st.page_link("Home.py", label="← Back to hub homepage", icon="🏠")
+        else:
+            st.write("")
+
+    with cols[1]:
+        if show_project_selector:
+            sel = st.selectbox(
+                "Project",
+                options=list(id_to_name.keys()),
+                index=default_index,
+                format_func=lambda pid: id_to_name.get(pid, pid),
+                key="__project_selector_topnav",
+                label_visibility="collapsed",
+            )
+            if sel != current:
+                set_current_project(sel)
+                current = sel
+        else:
+            st.write("")
+
+    with cols[2]:
+        if show_projects_link:
+            st.page_link("pages/00_Projects.py", label="Projects", icon="📁")
+        else:
+            st.write("")
+
+    with cols[3]:
+        if show_library_link:
+            st.page_link("pages/09_Library.py", label="Library", icon="🗂️")
+        else:
+            st.write("")
+
+    st.divider()
+    return current
+
+
 def require_project() -> str:
     """Return the selected project_id.
 

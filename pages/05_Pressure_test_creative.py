@@ -6,7 +6,7 @@ from engines.audience import focus_group_debate
 from engines.personas import Persona, load_personas
 from storage.store import save_artifact
 from ui.branding import apply_branding
-from ui.layout import project_banner, require_project
+from ui.layout import hub_nav
 from ui.seed import set_copywriter_seed
 
 
@@ -54,13 +54,7 @@ div[data-testid="stExpander"] summary:hover {
 )
 
 
-# --- Sidebar (keep main canvas clean) ---
-with st.sidebar:
-    project_banner(compact=True)
-    st.divider()
-    st.caption("This tool runs a ‘Believer vs Skeptic’ debate and then produces a moderator analysis + rewrite.")
-
-pid = require_project()
+pid = hub_nav()
 
 _, segments, personas = load_personas()
 if not personas:

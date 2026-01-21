@@ -5,7 +5,7 @@ import streamlit as st
 from engines.sheets_briefs import parse_step2_report
 from storage.store import get_artifact, list_artifacts
 from ui.branding import apply_branding
-from ui.layout import human_time, project_banner, require_project
+from ui.layout import hub_nav, human_time
 from ui.seed import set_copywriter_seed
 
 st.set_page_config(
@@ -16,7 +16,7 @@ st.set_page_config(
 )
 apply_branding()
 
-pid = require_project()
+pid = hub_nav()
 
 def _clip(s: str, n: int = 160) -> str:
     s = (s or "").strip()
@@ -68,13 +68,7 @@ def _fmt_rewrite(copy_type: str, rewrite: dict) -> str:
 
     # Fallback: stringify the JSON.
     return json.dumps(rw, ensure_ascii=False, indent=2)
-
-
-with st.sidebar:
-    project_banner(compact=True)
-
-    st.divider()
-    st.markdown("## Filters")
+ 
 
 st.markdown("<div class='page-title'>Library</div>", unsafe_allow_html=True)
 st.markdown(
@@ -88,9 +82,10 @@ if not artifacts:
     st.info("No artifacts yet. Start from Home.")
     st.stop()
 
-# Sidebar filters
 all_types = sorted({a.type for a in artifacts})
-with st.sidebar:
+
+# Filters (kept on main page; sidebar is hidden)
+with st.expander("Filters", expanded=False):
     type_filter = st.selectbox("Type", options=["All"] + all_types)
     query = st.text_input("Search title", value="", placeholder="e.g., draft, spikes, focus group…")
 

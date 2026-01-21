@@ -7,7 +7,7 @@ from engines.llm import extract_json_object, query_openai
 from engines.personas import load_personas, persona_label
 from storage.store import save_artifact
 from ui.branding import apply_branding
-from ui.layout import project_banner, require_project
+from ui.layout import hub_nav
 from ui.seed import set_copywriter_seed
 
 st.set_page_config(
@@ -89,29 +89,40 @@ Return ONLY JSON (no markdown, no commentary) in this schema:
     return cleaned[: max(0, n)]
 
 
-# ---- Data + project ----
+pid = hub_nav()
+
+# ---- Data ----
 _, segments, personas = load_personas()
 if not personas:
     st.error("No personas found.")
     st.stop()
 
-pid = require_project()
+# Settings (kept on main page; sidebar is hidden)
+segment_opts = ["All"] + [s.get("id") or s.get("label") for s in segments]
+segment_label = {s.get("id") or s.get("label"): s.get("label", "Unknown") for s in segments}
 
-# Sidebar: project + controls
-with st.sidebar:
-    project_banner(compact=True)
+st.session_state.setdefault("headline_test_model", "gpt-4o-mini")
+st.session_state.setdefault("headline_test_segment", "All")
+st.session_state.setdefault("headline_test_personas", [p.uid for p in personas[:2]])
 
-    st.divider()
-    st.markdown("## Settings")
+seg_state = st.session_state.get("headline_test_segment", "All")
+if seg_state not in segment_opts:
+    seg_state = "All"
+    st.session_state["headline_test_segment"] = "All"
 
-    model = st.selectbox("Model", options=["gpt-4o", "gpt-4o-mini"], index=1)
+with st.expander("Settings", expanded=False):
+    model = st.selectbox(
+        "Model",
+        options=["gpt-4o", "gpt-4o-mini"],
+        index=1,
+        key="headline_test_model",
+    )
 
-    segment_opts = ["All"] + [s.get("id") or s.get("label") for s in segments]
-    segment_label = {s.get("id") or s.get("label"): s.get("label", "Unknown") for s in segments}
     seg = st.selectbox(
         "Segment",
         options=segment_opts,
         format_func=lambda x: "All" if x == "All" else segment_label.get(x, x),
+        key="headline_test_segment",
     )
 
     if seg == "All":
@@ -120,12 +131,22 @@ with st.sidebar:
         visible = [p for p in personas if p.segment_id == seg or p.segment_label == segment_label.get(seg)]
 
     uid_to_p = {p.uid: p for p in visible}
+    visible_uids = [p.uid for p in visible]
+
+    # Keep the persona selection valid when segment changes.
+    prev = st.session_state.get("headline_test_personas")
+    prev = prev if isinstance(prev, list) else []
+    valid_default = [uid for uid in prev if uid in visible_uids]
+    if not valid_default:
+        valid_default = visible_uids[:2]
+    st.session_state["headline_test_personas"] = valid_default
 
     selected_uids = st.multiselect(
         "Personas to test",
-        options=[p.uid for p in visible],
-        default=[p.uid for p in visible[:2]],
+        options=visible_uids,
+        default=valid_default,
         format_func=lambda uid: persona_label(uid_to_p[uid]),
+        key="headline_test_personas",
     )
 
     st.caption("Tip: start with 2 personas, then expand.")

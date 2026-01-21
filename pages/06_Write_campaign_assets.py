@@ -13,7 +13,7 @@ from engines.creative import (
 from storage.store import save_artifact
 from ui.branding import apply_branding
 from ui.export import create_docx_from_markdown
-from ui.layout import project_banner, require_project
+from ui.layout import hub_nav
 from ui.seed import set_headline_test_seed
 
 st.set_page_config(
@@ -24,7 +24,7 @@ st.set_page_config(
 )
 apply_branding()
 
-pid = require_project()
+pid = hub_nav()
 
 # Seed from other tools
 seed_hook = st.session_state.get("seed_hook", "")
@@ -56,9 +56,7 @@ st.session_state.setdefault("cw_gemini_model", "gemini-1.5-pro")
 st.session_state.setdefault("cw_auto_qa", True)
 
 
-# Sidebar (project selector only)
-with st.sidebar:
-    project_banner(compact=True)
+ 
 
 # Hero
 st.markdown("<div class='page-title'>Brief our AI copywriter to deliver campaign assets</div>", unsafe_allow_html=True)

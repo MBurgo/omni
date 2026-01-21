@@ -2,7 +2,7 @@ import streamlit as st
 
 from storage.store import create_project, get_current_project_id, list_projects, set_current_project
 from ui.branding import apply_branding
-from ui.layout import human_time, project_banner, require_project
+from ui.layout import hub_nav, human_time
 
 st.set_page_config(
     page_title="Projects",
@@ -12,11 +12,8 @@ st.set_page_config(
 )
 apply_branding()
 
-# Ensure a project always exists (Option A: auto-create Default).
-require_project()
-
-with st.sidebar:
-    project_banner(compact=True)
+# Top navigation (includes project selector).
+hub_nav()
 
 st.markdown("<div class='page-title'>Projects</div>", unsafe_allow_html=True)
 st.markdown(

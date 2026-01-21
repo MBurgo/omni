@@ -5,7 +5,7 @@ import streamlit.components.v1 as components
 
 from storage.store import save_artifact
 from ui.branding import apply_branding
-from ui.layout import project_banner, require_project
+from ui.layout import hub_nav
 from utils import get_secret
 
 st.set_page_config(
@@ -23,17 +23,7 @@ url = (
     or "https://openai-chatkit-starter-app-opal-xi.vercel.app/"
 )
 
-# --- Sidebar: project + embed settings ---
-with st.sidebar:
-    project_banner(compact=True)
-
-    st.divider()
-    st.markdown("## Settings")
-    height = st.slider("Embed height", min_value=560, max_value=1400, value=860, step=20)
-    if url:
-        st.markdown(f"[Open Futurist in a new tab]({url})")
-
-pid = require_project()
+pid = hub_nav()
 
 # --- Hero (matches screenshot copy) ---
 st.markdown(
@@ -51,6 +41,20 @@ Our AI acts as a futurist, and identifies emerging trends investors should be ac
 )
 
 st.session_state.setdefault("futurist_started", False)
+st.session_state.setdefault("futurist_height", 860)
+
+# Settings (kept on the main page; sidebar is hidden)
+with st.expander("Settings", expanded=False):
+    height = st.slider(
+        "Embed height",
+        min_value=560,
+        max_value=1400,
+        value=int(st.session_state.get("futurist_height", 860)),
+        step=20,
+        key="futurist_height",
+    )
+    if url:
+        st.markdown(f"[Open Futurist in a new tab]({url})")
 
 start = st.button("Start Run", type="primary")
 if start:

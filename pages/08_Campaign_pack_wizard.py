@@ -9,7 +9,7 @@ from engines.signals import collect_signals, summarise_daily_brief
 from storage.store import save_artifact
 from ui.branding import apply_branding
 from ui.export import create_docx_from_markdown
-from ui.layout import project_banner, require_project
+from ui.layout import hub_nav
 
 st.set_page_config(
     page_title="Campaign pack wizard",
@@ -19,10 +19,7 @@ st.set_page_config(
 )
 apply_branding()
 
-pid = require_project()
-
-with st.sidebar:
-    project_banner(compact=True)
+pid = hub_nav()
 
 st.markdown("<div class='page-title'>Campaign pack wizard</div>", unsafe_allow_html=True)
 st.markdown(
