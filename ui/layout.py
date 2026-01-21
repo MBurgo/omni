@@ -99,15 +99,14 @@ def hub_nav(
     *,
     show_home_link: bool = True,
     show_project_selector: bool = True,
-    show_projects_link: bool = True,
-    show_library_link: bool = True,
+    show_projects_link: bool = False,
+    show_library_link: bool = False,
 ) -> str:
     """Render a lightweight top navigation bar for all pages.
 
     The portal intentionally hides Streamlit's sidebar navigation. This helper provides:
-    - A "Back to hub homepage" link
+    - A "Back to hub" link
     - A project selector (so users can switch context without a sidebar)
-    - Quick links to Projects and Library
 
     Returns the current project_id.
     """
@@ -120,13 +119,14 @@ def hub_nav(
     if current and current in id_to_name:
         default_index = list(id_to_name.keys()).index(current)
 
-    # Layout: Home | Project selector | Projects | Library
-    cols = st.columns([2.0, 4.0, 1.3, 1.3], gap="small")
+    # Layout: Back link | Project selector
+    cols = st.columns([1.6, 4.4], gap="small")
 
     with cols[0]:
         if show_home_link:
             # Streamlit renders this as an inline link-style control.
-            st.page_link("Home.py", label="← Back to hub homepage", icon="🏠")
+            # Keep this compact: no icons/emojis and a short label.
+            st.page_link("Home.py", label="Back to hub")
         else:
             st.write("")
 
@@ -146,19 +146,11 @@ def hub_nav(
         else:
             st.write("")
 
-    with cols[2]:
-        if show_projects_link:
-            st.page_link("pages/00_Projects.py", label="Projects", icon="📁")
-        else:
-            st.write("")
-
-    with cols[3]:
-        if show_library_link:
-            st.page_link("pages/09_Library.py", label="Library", icon="🗂️")
-        else:
-            st.write("")
-
-    st.divider()
+    # Keep the separator subtle and tight to reduce vertical footprint.
+    st.markdown(
+        "<hr style='margin: 0.35rem 0 0.9rem 0; border: none; border-top: 1px solid rgba(255,255,255,0.12);' />",
+        unsafe_allow_html=True,
+    )
     return current
 
 

@@ -11,8 +11,8 @@ st.set_page_config(
 )
 apply_branding()
 
-# Top navigation (includes the "Back to hub homepage" link for consistent placement across pages).
-hub_nav()
+# Top navigation. On the hub homepage itself we hide the back-link.
+hub_nav(show_home_link=False)
 
 # --- Page-specific CSS to turn secondary buttons into the home tiles ---
 st.markdown(
