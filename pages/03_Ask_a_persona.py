@@ -383,9 +383,9 @@ with interview_tab:
     # Suggested questions
     st.markdown("### 💡 Suggested Questions")
     suggestions = [
-        "What would make this offer feel credible to you?",
-        "What objections do you have to this headline (and why)?",
-        "What proof would you need to see before you’d trust this claim?",
+        "What would make this offer feel credible to you? [INSERT OFFER]",
+        "What objections do you have to this headline (and why)? [INSERT HEADLINE]",
+        "What proof would you need to see before you’d trust this claim? [INSERT CLAIM]",
     ]
 
     st.markdown("<div class='suggested-questions'>", unsafe_allow_html=True)
