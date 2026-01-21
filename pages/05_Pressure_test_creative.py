@@ -3,18 +3,62 @@ import json
 import streamlit as st
 
 from engines.audience import focus_group_debate
-from engines.personas import load_personas, persona_label
+from engines.personas import Persona, load_personas
 from storage.store import save_artifact
 from ui.branding import apply_branding
 from ui.layout import project_banner, require_project
 
-st.set_page_config(page_title="Pressure-test creative", page_icon="🔬", layout="wide")
+
+def _short_persona_label(p: Persona) -> str:
+    """Compact persona label for dropdowns (matches screenshot style)."""
+    return f"{p.name} ({p.segment_label})"
+
+
+st.set_page_config(
+    page_title="Pressure test creative",
+    page_icon="",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
 apply_branding()
 
-st.title("🔬 Pressure-test creative")
-st.caption("Believer vs Skeptic debate + moderator rewrite. Use this for headlines, emails, sales pages, and ad copy.")
+# Page-specific tweaks to better match the provided screenshot.
+st.markdown(
+    """
+<style>
+/* Make the expander look like a full-width pill row */
+div[data-testid="stExpander"] details {
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 16px;
+  background: rgba(255,255,255,0.02);
+}
+div[data-testid="stExpander"] summary {
+  padding: 0.85rem 1.05rem;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  color: rgba(255,255,255,0.92);
+}
+div[data-testid="stExpander"] summary:hover {
+  background: rgba(255,255,255,0.03);
+  border-radius: 16px;
+}
 
-project_banner()
+/* Slightly bigger textarea to match screenshot proportions */
+[data-testid="stTextArea"] textarea {
+  min-height: 285px;
+}
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+
+# --- Sidebar (keep main canvas clean) ---
+with st.sidebar:
+    project_banner()
+    st.divider()
+    st.caption("This tool runs a ‘Believer vs Skeptic’ debate and then produces a moderator analysis + rewrite.")
+
 pid = require_project()
 
 _, segments, personas = load_personas()
@@ -27,44 +71,72 @@ uid_to_p = {p.uid: p for p in personas}
 # Preload from other flows
 default_creative = st.session_state.get("draft_for_validation") or st.session_state.get("seed_creative") or ""
 
-col1, col2, col3 = st.columns([2,2,1])
+
+# --- Hero ---
+st.markdown(
+    "<div class='hero-title'>Pressure test your creatives using our AI personas</div>",
+    unsafe_allow_html=True,
+)
+st.markdown(
+    """
+<div class='page-subtitle'>
+Our AI personas are built using real Australian investor demographics and traits. Ask them any questions regarding their
+feelings, motivations or opinions. Our AI personas will take a “Believer vs Skeptic” debate approach, and our moderator will
+scan their arguments for insights.. Use this to pressure test headlines, emails, sales pages, and ad copy.
+</div>
+""",
+    unsafe_allow_html=True,
+)
+
+
+# --- Inputs ---
+col1, col2, col3 = st.columns([2, 2, 1], gap="large")
 with col1:
     believer_uid = st.selectbox(
         "Believer",
         options=[p.uid for p in personas],
         index=0,
-        format_func=lambda uid: persona_label(uid_to_p[uid]),
+        format_func=lambda uid: _short_persona_label(uid_to_p[uid]),
     )
 with col2:
     skeptic_uid = st.selectbox(
         "Skeptic",
         options=[p.uid for p in personas],
         index=1 if len(personas) > 1 else 0,
-        format_func=lambda uid: persona_label(uid_to_p[uid]),
+        format_func=lambda uid: _short_persona_label(uid_to_p[uid]),
     )
 with col3:
-    copy_type = st.selectbox("Copy type", options=["Headline", "Email", "Sales Page", "Other"], index=1)
+    copy_type = st.selectbox(
+        "Copy type",
+        options=["Email", "Headline", "Sales Page", "Ad copy", "Other"],
+        index=0,
+    )
 
-creative = st.text_area("Creative to test", value=default_creative, height=260)
+creative = st.text_area(
+    "Creative to test",
+    value=default_creative,
+    height=300,
+    placeholder="Paste your headline/email/sales page/ad copy here…",
+)
 
-risk_flags = []
-from engines.audience import claim_risk_flags, word_count, estimate_tokens
 
-wc = word_count(creative)
-tok = estimate_tokens(creative)
-if creative.strip():
-    risk_flags = claim_risk_flags(creative)
-    st.caption(f"Size: {wc} words (approx {tok} tokens)")
-    if risk_flags:
-        st.warning("Risk flags detected: " + ", ".join(risk_flags))
-
+# --- Long copy settings ---
 with st.expander("Long copy settings", expanded=False):
-    participant_scope = st.selectbox("Participants see", options=["Full text (capped)", "First N words", "Custom excerpt"], index=1)
+    st.caption(
+        "If you’re testing long creative, you can limit what participants see while still giving the moderator a structured brief."
+    )
+    participant_scope = st.selectbox(
+        "Participants see",
+        options=["Full text (capped)", "First N words", "Custom excerpt"],
+        index=1,
+    )
     participant_n_words = st.slider("First N words", min_value=150, max_value=1200, value=450, step=50)
     participant_custom_excerpt = st.text_area("Custom excerpt", height=120)
     extract_brief = st.checkbox("Auto-extract structured brief (recommended)", value=True)
 
-colA, colB, colC = st.columns(3)
+
+# --- Models ---
+colA, colB, colC, colD = st.columns([1, 1, 1, 0.35], gap="large")
 with colA:
     model = st.selectbox("Debate model", options=["gpt-4o", "gpt-4o-mini"], index=0)
 with colB:
@@ -77,13 +149,13 @@ with colC:
             "gemini-2.5-flash",
             "gemini-1.5-pro",
             "gemini-1.5-flash",
-            "Custom...",
+            "Custom…",
         ],
         index=0,
         help="Gemini is preferred for the moderator. If Gemini isn't configured, the app falls back to OpenAI.",
     )
 
-    if _moderator_choice == "Custom...":
+    if _moderator_choice == "Custom…":
         moderator_model = st.text_input(
             "Custom Gemini model id",
             value=st.session_state.get("moderator_model_custom", "gemini-2.5-pro"),
@@ -93,7 +165,14 @@ with colC:
     else:
         moderator_model = _moderator_choice
 
-if st.button("Run focus group", type="primary"):
+with colD:
+    # Unlabeled toggle (matches the screenshot’s bottom-right control). It currently controls
+    # whether the debate transcript is shown in full.
+    show_full_debate = st.toggle("Show full debate", value=True, label_visibility="collapsed")
+
+
+run = st.button("Run focus group", type="primary")
+if run:
     if not creative.strip():
         st.warning("Paste creative first.")
         st.stop()
@@ -101,7 +180,7 @@ if st.button("Run focus group", type="primary"):
     believer = uid_to_p[believer_uid]
     skeptic = uid_to_p[skeptic_uid]
 
-    with st.status("Running debate + moderator analysis...", expanded=True) as status:
+    with st.status("Running debate + moderator analysis…", expanded=True) as status:
         out = focus_group_debate(
             believer=believer,
             skeptic=skeptic,
@@ -134,7 +213,9 @@ if st.button("Run focus group", type="primary"):
     )
 
     st.session_state["focus_group_last"] = out
+    st.session_state["focus_group_show_full_debate"] = show_full_debate
     st.rerun()
+
 
 out = st.session_state.get("focus_group_last")
 if not out:
@@ -144,56 +225,73 @@ if out.get("error"):
     st.error(out["error"])
     st.stop()
 
+
 st.divider()
 
-st.subheader("What the personas saw")
-with st.expander("Excerpt", expanded=False):
-    st.write(out.get("excerpt", ""))
+tabs = st.tabs(["What the personas saw", "Debate", "Moderator analysis", "Rewrite actions"])
 
-if out.get("brief_json") or out.get("brief_raw"):
-    with st.expander("Extracted brief", expanded=False):
-        if out.get("brief_json"):
-            st.code(json.dumps(out.get("brief_json"), ensure_ascii=False, indent=2), language="json")
-        else:
-            st.code(out.get("brief_raw"), language="text")
+with tabs[0]:
+    with st.expander("Excerpt", expanded=False):
+        st.write(out.get("excerpt", ""))
 
-st.subheader("Debate")
-for turn in out.get("debate_turns") or []:
-    st.markdown(f"**{turn.get('name')} ({turn.get('role')}):** {turn.get('text')}")
-    st.divider()
+    if out.get("brief_json") or out.get("brief_raw"):
+        with st.expander("Extracted brief", expanded=False):
+            if out.get("brief_json"):
+                st.code(json.dumps(out.get("brief_json"), ensure_ascii=False, indent=2), language="json")
+            else:
+                st.code(out.get("brief_raw"), language="text")
 
-st.subheader("Moderator analysis")
-mod = out.get("moderator_json")
-if isinstance(mod, dict):
-    if mod.get("executive_summary"):
-        st.success(mod.get("executive_summary"))
-    cols = st.columns(3)
-    with cols[0]:
-        if mod.get("real_why"):
-            st.markdown("**Real why**")
-            st.write(mod.get("real_why"))
-    with cols[1]:
-        if mod.get("trust_gap"):
-            st.markdown("**Trust gap**")
-            st.write(mod.get("trust_gap"))
-    with cols[2]:
-        if mod.get("risk_flags"):
-            st.markdown("**Risk flags**")
-            st.markdown("- " + "\n- ".join(mod.get("risk_flags")))
+with tabs[1]:
+    debate_turns = out.get("debate_turns") or []
+    if not debate_turns:
+        st.info("No debate turns found.")
+    else:
+        full = st.session_state.get("focus_group_show_full_debate", True)
+        turns_to_show = debate_turns if full else debate_turns[:6]
+        for turn in turns_to_show:
+            st.markdown(f"**{turn.get('name')} ({turn.get('role')}):** {turn.get('text')}")
+            st.divider()
 
-    if mod.get("key_objections"):
-        st.markdown("**Key objections**")
-        st.markdown("- " + "\n- ".join(mod.get("key_objections")))
-    if mod.get("proof_needed"):
-        st.markdown("**Proof needed**")
-        st.markdown("- " + "\n- ".join(mod.get("proof_needed")))
-    if mod.get("actionable_fixes"):
-        st.markdown("**Actionable fixes**")
-        st.markdown("- " + "\n- ".join(mod.get("actionable_fixes")))
+        if not full and len(debate_turns) > len(turns_to_show):
+            st.caption("Debate truncated. Enable the bottom-right toggle and rerun to show the full transcript.")
 
-    st.divider()
-    st.markdown("### ✍️ Suggested rewrite")
+with tabs[2]:
+    mod = out.get("moderator_json")
+    if isinstance(mod, dict):
+        if mod.get("executive_summary"):
+            st.success(mod.get("executive_summary"))
+
+        cols = st.columns(3)
+        with cols[0]:
+            if mod.get("real_why"):
+                st.markdown("**Real why**")
+                st.write(mod.get("real_why"))
+        with cols[1]:
+            if mod.get("trust_gap"):
+                st.markdown("**Trust gap**")
+                st.write(mod.get("trust_gap"))
+        with cols[2]:
+            if mod.get("risk_flags"):
+                st.markdown("**Risk flags**")
+                st.markdown("- " + "\n- ".join(mod.get("risk_flags")))
+
+        if mod.get("key_objections"):
+            st.markdown("**Key objections**")
+            st.markdown("- " + "\n- ".join(mod.get("key_objections")))
+        if mod.get("proof_needed"):
+            st.markdown("**Proof needed**")
+            st.markdown("- " + "\n- ".join(mod.get("proof_needed")))
+        if mod.get("actionable_fixes"):
+            st.markdown("**Actionable fixes**")
+            st.markdown("- " + "\n- ".join(mod.get("actionable_fixes")))
+    else:
+        st.write(out.get("moderator_raw", ""))
+
+with tabs[3]:
+    mod = out.get("moderator_json") or {}
     rw = mod.get("rewrite") or {}
+
+    st.markdown("### Suggested rewrite")
     if copy_type == "Headline":
         for h in (rw.get("headlines") or [])[:10]:
             st.markdown(f"- {h}")
@@ -228,12 +326,10 @@ if isinstance(mod, dict):
     else:
         st.write(rw)
 
-    # Actions
     st.divider()
     colX, colY = st.columns(2)
     with colX:
         if st.button("Use rewrite as new draft"):
-            # Convert rewrite to plain text for editing
             if copy_type == "Headline":
                 new_text = (rw.get("headlines") or [""])[0]
             elif copy_type == "Email":
@@ -254,13 +350,12 @@ if isinstance(mod, dict):
 
             st.session_state["seed_creative"] = new_text
             st.session_state["seed_source"] = "focus_group_rewrite"
+            st.session_state["copywriter_mode"] = "adapt"
             st.switch_page("pages/06_Write_campaign_assets.py")
 
     with colY:
         if st.button("Send original creative to Copywriter"):
             st.session_state["seed_creative"] = creative
             st.session_state["seed_source"] = "focus_group_original"
+            st.session_state["copywriter_mode"] = "adapt"
             st.switch_page("pages/06_Write_campaign_assets.py")
-
-else:
-    st.write(out.get("moderator_raw", ""))
