@@ -50,31 +50,32 @@ with st.sidebar:
 
     st.markdown("### Tone / traits")
     traits = {
-        "Urgency": st.slider("Urgency", 1, 10, 8),
-        "Data_Richness": st.slider("Data Richness", 1, 10, 7),
-        "Social_Proof": st.slider("Social Proof", 1, 10, 6),
-        "Comparative_Framing": st.slider("Comparative Framing", 1, 10, 6),
-        "Imagery": st.slider("Imagery", 1, 10, 7),
-        "Conversational_Tone": st.slider("Conversational Tone", 1, 10, 8),
-        "FOMO": st.slider("FOMO", 1, 10, 7),
-        "Repetition": st.slider("Repetition", 1, 10, 5),
+        "Urgency": st.slider("Urgency", 1, 10, 8, key="cw_trait_urgency"),
+        "Data_Richness": st.slider("Data Richness", 1, 10, 7, key="cw_trait_data"),
+        "Social_Proof": st.slider("Social Proof", 1, 10, 6, key="cw_trait_social"),
+        "Comparative_Framing": st.slider("Comparative Framing", 1, 10, 6, key="cw_trait_compare"),
+        "Imagery": st.slider("Imagery", 1, 10, 7, key="cw_trait_imagery"),
+        "Conversational_Tone": st.slider("Conversational Tone", 1, 10, 8, key="cw_trait_convo"),
+        "FOMO": st.slider("FOMO", 1, 10, 7, key="cw_trait_fomo"),
+        "Repetition": st.slider("Repetition", 1, 10, 5, key="cw_trait_repetition"),
     }
 
     st.divider()
-    country = st.selectbox("Target country", list(COUNTRY_RULES.keys()), index=0)
+    country = st.selectbox("Target country", list(COUNTRY_RULES.keys()), index=0, key="cw_country")
 
     st.markdown("### AI provider")
-    provider = st.radio("Provider", options=["OpenAI", "Gemini"], index=0, horizontal=True)
+    provider = st.radio("Provider", options=["OpenAI", "Gemini"], index=0, horizontal=True, key="cw_provider")
 
     openai_model = "gpt-4o"
     gemini_model = "gemini-1.5-pro"
     if provider == "OpenAI":
-        openai_model = st.selectbox("OpenAI model", options=["gpt-4o", "gpt-4o-mini"], index=0)
+        openai_model = st.selectbox("OpenAI model", options=["gpt-4o", "gpt-4o-mini"], index=0, key="cw_openai_model")
     else:
         gemini_model = st.selectbox(
             "Gemini model",
             options=["gemini-1.5-pro", "gemini-1.5-flash"],
             index=0,
+            key="cw_gemini_model",
             help="Requires google.api_key in Streamlit secrets (falls back to OpenAI if missing).",
         )
 
@@ -83,6 +84,7 @@ with st.sidebar:
     auto_qa = st.checkbox(
         "Run QA pass (recommended)",
         value=True,
+        key="cw_auto_qa",
         help="Checks structure, disclaimer, length, and compliance; auto-fixes if needed.",
     )
 

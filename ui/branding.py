@@ -39,10 +39,19 @@ def apply_branding(footer_text: str = "Burgo’s AI Hub") -> None:
 /* --- Hide Streamlit chrome --- */
 #MainMenu {{ visibility: hidden; }}
 footer {{ visibility: hidden; }}
-header {{ visibility: hidden; }}
-[data-testid="stToolbar"] {{ display: none; }}
-[data-testid="stDecoration"] {{ display: none; }}
-[data-testid="stHeader"] {{ display: none; }}
+
+/* Keep the header so the sidebar expand/collapse control remains accessible.
+   We still hide Streamlit's main menu and footer above. */
+header[data-testid="stHeader"] {{ background: transparent; }}
+
+/* Ensure the sidebar toggle is visible on a dark background */
+[data-testid="collapsedControl"] {{
+  color: rgba(255,255,255,0.92);
+}}
+[data-testid="collapsedControl"] svg {{
+  fill: rgba(255,255,255,0.92);
+  stroke: rgba(255,255,255,0.92);
+}}
 
 /* --- App background + base typography --- */
 html, body {{

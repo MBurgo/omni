@@ -317,6 +317,7 @@ if not personas:
 st.session_state.setdefault("persona_chat", {})  # uid -> [(q,a),...]
 st.session_state.setdefault("persona_selected_uid", personas[0].uid)
 st.session_state.setdefault("persona_question", "")
+st.session_state.setdefault("_persona_clear_question", False)
 st.session_state.setdefault("persona_ask_all", False)
 st.session_state.setdefault("persona_last_batch", None)
 st.session_state.setdefault("persona_focus_question", "")
@@ -386,6 +387,14 @@ with interview_tab:
 
     # Interaction
     st.markdown("### 💬 Interaction")
+
+    # Clear the question box *before* the widget is created to avoid
+    # StreamlitAPIException (cannot set a widget-backed session_state key
+    # after the widget is instantiated in the same run).
+    if st.session_state.get("_persona_clear_question"):
+        st.session_state["persona_question"] = ""
+        st.session_state["_persona_clear_question"] = False
+
     question = st.text_area(
         "Enter your question:",
         key="persona_question",
@@ -422,6 +431,9 @@ with interview_tab:
                     metadata={"segment": seg, "model": model, "n": len(results)},
                 )
 
+                # Clear input on the next rerun.
+                st.session_state["_persona_clear_question"] = True
+
                 st.rerun()
 
             else:
@@ -447,7 +459,8 @@ with interview_tab:
                         metadata={"persona_uid": selected.uid, "segment": selected.segment_label, "model": model},
                     )
 
-                    st.session_state.persona_question = ""
+                    # Clear input on the next rerun (must happen before the text_area is created).
+                    st.session_state["_persona_clear_question"] = True
                     st.rerun()
 
     # Display results
