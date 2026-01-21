@@ -312,8 +312,7 @@ st.markdown(
 <div class='persona-callout'>
   <div class='persona-callout-title'>About This Tool</div>
   <div class='persona-callout-body'>
-    This tool interviews synthetic Australian investor personas for <b>strategic analysis</b>, <b>copy reactions</b>, trust triggers and objections.<br/>
-    Tip: For long prompts, paste your creative as-is and ask for a reaction + suggested improvements.
+    This tool has two tabs. The first is to conduct individual interviews with a single persona, or all personas. The second tab allows you to have a more "focus group" style discussion between personas.
   </div>
 </div>
 """,
