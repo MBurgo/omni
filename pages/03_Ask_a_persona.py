@@ -273,12 +273,12 @@ st.markdown(
 pid = hub_nav()
 
 # Settings (kept on the main page; sidebar is hidden)
-st.session_state.setdefault("persona_model", "gpt-4o-mini")
+st.session_state.setdefault("persona_model", "gpt-4.1")
 st.session_state.setdefault("persona_temperature", 0.7)
 st.session_state.setdefault("persona_max_batch", 8)
 
 with st.expander("Settings", expanded=False):
-    model = st.selectbox("Model", options=["gpt-4o-mini", "gpt-4o"], index=0, key="persona_model")
+    model = st.selectbox("Model", options=["gpt-4.1", "o3", "gpt-4o", "gpt-4o-mini"], index=0, key="persona_model")
     temperature = st.slider(
         "Temperature",
         min_value=0.0,

@@ -127,7 +127,7 @@ def ask_persona(
     persona: Persona,
     question: str,
     history: Optional[List[Tuple[str, str]]] = None,
-    model: str = "gpt-4o",
+    model: str = "gpt-4.1",
     temperature: float = 0.7,
 ) -> str:
     history = history or []
@@ -174,7 +174,7 @@ def test_headlines(
     persona: Persona,
     headlines: List[str],
     context: str = "",
-    model: str = "gpt-4o",
+    model: str = "gpt-4.1",
 ) -> Dict[str, Any]:
     raw = query_openai(
         [{"role": "user", "content": headline_test_prompt(persona, headlines, context)}],
@@ -406,7 +406,7 @@ def focus_group_debate(
     participant_custom_excerpt: str = "",
     extract_brief: bool = True,
     brief_model: str = "gpt-4o-mini",
-    model: str = "gpt-4o",
+    model: str = "gpt-4.1",
     moderator_model: str = "gemini-1.5-pro",
 ) -> Dict[str, Any]:
     """Run a Believer vs Skeptic debate and return structured outputs."""

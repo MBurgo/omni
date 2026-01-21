@@ -51,7 +51,7 @@ with TAB1:
         trends_q = st.text_input("Trends query/topic id (optional)", value=st.session_state.get("wiz_trends_q", ""))
         st.session_state.wiz_trends_q = trends_q
     with colC:
-        model = st.selectbox("Model", options=["gpt-4o", "gpt-4o-mini"], index=0, key="wiz_signal_model")
+        model = st.selectbox("Model", options=["gpt-4.1", "o3", "gpt-4o", "gpt-4o-mini"], index=0, key="wiz_signal_model")
 
     if st.button("Run signals", type="primary"):
         with st.status("Collecting signals and generating opportunities...", expanded=True) as status:
@@ -110,7 +110,7 @@ with TAB2:
             "Repetition": st.slider("Repetition", 1, 10, 5, key="wiz_t_rep"),
         }
 
-    model = st.selectbox("Model", options=["gpt-4o", "gpt-4o-mini"], index=0, key="wiz_copy_model")
+    model = st.selectbox("Model", options=["gpt-4.1", "o3", "gpt-4o", "gpt-4o-mini"], index=0, key="wiz_copy_model")
 
     if st.button("Generate draft", type="primary"):
         with st.spinner("Writing..."):
@@ -169,7 +169,7 @@ with TAB3:
                     participant_scope="First N words",
                     participant_n_words=450,
                     extract_brief=True,
-                    model="gpt-4o",
+                    model="gpt-4.1",
                     moderator_model="gemini-1.5-pro",
                 )
                 st.session_state.wiz_focus = out

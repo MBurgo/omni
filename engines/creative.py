@@ -248,7 +248,7 @@ def generate_copy_with_plan(
     brief: Dict[str, str],
     length_choice: str,
     provider: str = "OpenAI",
-    openai_model: str = "gpt-4o",
+    openai_model: str = "gpt-4.1",
     gemini_model: str = "gemini-1.5-pro",
 ) -> Dict[str, str]:
     """Generate copy and an internal plan (outline).
@@ -312,7 +312,7 @@ def generate_copy(
     traits: Dict[str, int],
     brief: Dict[str, str],
     length_choice: str,
-    model: str = "gpt-4o",
+    model: str = "gpt-4.1",
 ) -> str:
     out = generate_copy_with_plan(
         copy_type=copy_type,
@@ -337,7 +337,7 @@ def rewrite_with_traits_preserve_structure(
     brief: Optional[Dict[str, str]] = None,
     extra_instructions: str = "",
     provider: str = "OpenAI",
-    openai_model: str = "gpt-4o",
+    openai_model: str = "gpt-4.1",
     gemini_model: str = "gemini-1.5-pro",
 ) -> Dict[str, str]:
     """Rewrite an existing draft using the current trait rules.
@@ -404,7 +404,7 @@ def revise_copy_goal(
     existing_copy: str,
     extra_notes: str = "",
     provider: str = "OpenAI",
-    openai_model: str = "gpt-4o",
+    openai_model: str = "gpt-4.1",
     gemini_model: str = "gemini-1.5-pro",
 ) -> str:
     sys_msg = dedent(
@@ -635,7 +635,7 @@ def adapt_copy(
     copy_text: str,
     brief_notes: str = "",
     provider: str = "OpenAI",
-    openai_model: str = "gpt-4o",
+    openai_model: str = "gpt-4.1",
     gemini_model: str = "gemini-1.5-pro",
 ) -> str:
     sys_msg = dedent(

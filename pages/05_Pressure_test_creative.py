@@ -133,9 +133,9 @@ with st.expander("Long copy settings", expanded=False):
 # --- Models ---
 colA, colB, colC, colD = st.columns([1, 1, 1, 0.35], gap="large")
 with colA:
-    model = st.selectbox("Debate model", options=["gpt-4o", "gpt-4o-mini"], index=0)
+    model = st.selectbox("Debate model", options=["gpt-4.1", "o3", "gpt-4o", "gpt-4o-mini"], index=0)
 with colB:
-    brief_model = st.selectbox("Brief extraction model", options=["gpt-4o-mini", "gpt-4o"], index=0)
+    brief_model = st.selectbox("Brief extraction model", options=["gpt-4.1", "o3", "gpt-4o-mini", "gpt-4o"], index=0)
 with colC:
     _moderator_choice = st.selectbox(
         "Moderator model",

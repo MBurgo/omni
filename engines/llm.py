@@ -25,7 +25,7 @@ def extract_json_object(text: str) -> Optional[Dict[str, Any]]:
 
 def query_openai(
     messages: List[Dict[str, str]],
-    model: str = "gpt-4o",
+    model: str = "gpt-4.1",
     temperature: float = 0.7,
     response_format: Optional[Dict[str, Any]] = None,
     max_tokens: Optional[int] = None,
@@ -102,7 +102,7 @@ def query_gemini_chat(
         # Fallback to OpenAI
         return query_openai(
             [{"role": "system", "content": system_instruction}, {"role": "user", "content": user_prompt}],
-            model="gpt-4o",
+            model="gpt-4.1",
         )
 
     # Safety settings (avoid overly aggressive blocks for marketing copy)
@@ -133,5 +133,5 @@ def query_gemini_chat(
         st.warning(f"Gemini error: {e}. Falling back to OpenAI.")
         return query_openai(
             [{"role": "system", "content": system_instruction}, {"role": "user", "content": user_prompt}],
-            model="gpt-4o",
+            model="gpt-4.1",
         )

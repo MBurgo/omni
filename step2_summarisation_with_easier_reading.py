@@ -20,7 +20,7 @@ import pytz
 from utils import get_gspread_client, get_openai_client, get_secret
 
 DEFAULT_SPREADSHEET_ID = "1BzTJgX7OgaA0QNfzKs5AgAx2rvZZjDdorgAz0SD9NZg"
-DEFAULT_MODEL = "gpt-4o"
+DEFAULT_MODEL = "gpt-4.1"
 
 
 def get_spreadsheet_id() -> str:

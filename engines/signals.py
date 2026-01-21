@@ -202,7 +202,7 @@ def _format_signals_for_prompt(d: SignalsData, include_links: bool = True, max_i
 
 def summarise_daily_brief(
     d: SignalsData,
-    model: str = "gpt-4o",
+    model: str = "gpt-4.1",
 ) -> Dict[str, Any]:
     """Return a structured daily briefing as JSON."""
     au_date = dt.datetime.now(dt.timezone(dt.timedelta(hours=10))).strftime("%Y-%m-%d")
@@ -256,7 +256,7 @@ Signals:
 
 def summarise_horizon_scan(
     d: SignalsData,
-    model: str = "gpt-4o",
+    model: str = "gpt-4.1",
 ) -> Dict[str, Any]:
     """Return a structured horizon scan: emerging themes + campaign ideas."""
     au_date = dt.datetime.now(dt.timezone(dt.timedelta(hours=10))).strftime("%Y-%m-%d")

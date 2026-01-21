@@ -51,7 +51,7 @@ st.session_state.setdefault("cw_trait_fomo", 7)
 st.session_state.setdefault("cw_trait_repetition", 5)
 st.session_state.setdefault("cw_country", "Australia")
 st.session_state.setdefault("cw_provider", "OpenAI")
-st.session_state.setdefault("cw_openai_model", "gpt-4o")
+st.session_state.setdefault("cw_openai_model", "gpt-4.1")
 st.session_state.setdefault("cw_gemini_model", "gemini-1.5-pro")
 st.session_state.setdefault("cw_auto_qa", True)
 
@@ -107,11 +107,11 @@ with st.expander("Copy settings", expanded=False):
         provider = st.radio("Provider", options=["OpenAI", "Gemini"], index=0, horizontal=True, key="cw_provider")
 
         # Keep model selections stable even when the other provider is selected.
-        openai_model = st.session_state.get("cw_openai_model", "gpt-4o")
+        openai_model = st.session_state.get("cw_openai_model", "gpt-4.1")
         gemini_model = st.session_state.get("cw_gemini_model", "gemini-1.5-pro")
 
         if provider == "OpenAI":
-            openai_model = st.selectbox("OpenAI model", options=["gpt-4o", "gpt-4o-mini"], index=0, key="cw_openai_model")
+            openai_model = st.selectbox("OpenAI model", options=["gpt-4.1", "o3", "gpt-4o", "gpt-4o-mini"], index=0, key="cw_openai_model")
         else:
             gemini_model = st.selectbox(
                 "Gemini model",

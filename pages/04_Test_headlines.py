@@ -101,7 +101,7 @@ if not personas:
 segment_opts = ["All"] + [s.get("id") or s.get("label") for s in segments]
 segment_label = {s.get("id") or s.get("label"): s.get("label", "Unknown") for s in segments}
 
-st.session_state.setdefault("headline_test_model", "gpt-4o-mini")
+st.session_state.setdefault("headline_test_model", "gpt-4.1")
 st.session_state.setdefault("headline_test_segment", "All")
 st.session_state.setdefault("headline_test_personas", [p.uid for p in personas[:2]])
 
@@ -113,8 +113,8 @@ if seg_state not in segment_opts:
 with st.expander("Settings", expanded=False):
     model = st.selectbox(
         "Model",
-        options=["gpt-4o", "gpt-4o-mini"],
-        index=1,
+        options=["gpt-4.1", "o3", "gpt-4o", "gpt-4o-mini"],
+        index=0,
         key="headline_test_model",
     )
 
