@@ -40,53 +40,25 @@ st.session_state.setdefault("revised_copy", "")
 st.session_state.setdefault("revised_plan", "")
 st.session_state.setdefault("adapted_copy", "")
 st.session_state.setdefault("adapted_plan", "")
+# Default copywriter settings (main-page widgets)
+st.session_state.setdefault("cw_trait_urgency", 8)
+st.session_state.setdefault("cw_trait_data", 7)
+st.session_state.setdefault("cw_trait_social", 6)
+st.session_state.setdefault("cw_trait_compare", 6)
+st.session_state.setdefault("cw_trait_imagery", 7)
+st.session_state.setdefault("cw_trait_convo", 8)
+st.session_state.setdefault("cw_trait_fomo", 7)
+st.session_state.setdefault("cw_trait_repetition", 5)
+st.session_state.setdefault("cw_country", "Australia")
+st.session_state.setdefault("cw_provider", "OpenAI")
+st.session_state.setdefault("cw_openai_model", "gpt-4o")
+st.session_state.setdefault("cw_gemini_model", "gemini-1.5-pro")
+st.session_state.setdefault("cw_auto_qa", True)
 
-# Sidebar settings
+
+# Sidebar (project selector only)
 with st.sidebar:
     project_banner(compact=True)
-
-    st.divider()
-    st.markdown("## Settings")
-
-    st.markdown("### Tone / traits")
-    traits = {
-        "Urgency": st.slider("Urgency", 1, 10, 8, key="cw_trait_urgency"),
-        "Data_Richness": st.slider("Data Richness", 1, 10, 7, key="cw_trait_data"),
-        "Social_Proof": st.slider("Social Proof", 1, 10, 6, key="cw_trait_social"),
-        "Comparative_Framing": st.slider("Comparative Framing", 1, 10, 6, key="cw_trait_compare"),
-        "Imagery": st.slider("Imagery", 1, 10, 7, key="cw_trait_imagery"),
-        "Conversational_Tone": st.slider("Conversational Tone", 1, 10, 8, key="cw_trait_convo"),
-        "FOMO": st.slider("FOMO", 1, 10, 7, key="cw_trait_fomo"),
-        "Repetition": st.slider("Repetition", 1, 10, 5, key="cw_trait_repetition"),
-    }
-
-    st.divider()
-    country = st.selectbox("Target country", list(COUNTRY_RULES.keys()), index=0, key="cw_country")
-
-    st.markdown("### AI provider")
-    provider = st.radio("Provider", options=["OpenAI", "Gemini"], index=0, horizontal=True, key="cw_provider")
-
-    openai_model = "gpt-4o"
-    gemini_model = "gemini-1.5-pro"
-    if provider == "OpenAI":
-        openai_model = st.selectbox("OpenAI model", options=["gpt-4o", "gpt-4o-mini"], index=0, key="cw_openai_model")
-    else:
-        gemini_model = st.selectbox(
-            "Gemini model",
-            options=["gemini-1.5-pro", "gemini-1.5-flash"],
-            index=0,
-            key="cw_gemini_model",
-            help="Requires google.api_key in Streamlit secrets (falls back to OpenAI if missing).",
-        )
-
-    st.divider()
-    st.markdown("### Quality")
-    auto_qa = st.checkbox(
-        "Run QA pass (recommended)",
-        value=True,
-        key="cw_auto_qa",
-        help="Checks structure, disclaimer, length, and compliance; auto-fixes if needed.",
-    )
 
 # Hero
 st.markdown("<div class='page-title'>Brief our AI copywriter to deliver campaign assets</div>", unsafe_allow_html=True)
@@ -97,6 +69,68 @@ st.markdown(
 
 if seed_source:
     st.caption(f"Seed loaded from: `{seed_source}`")
+
+# Copy settings (kept on the main page so the sidebar can stay collapsed)
+with st.expander("Copy settings", expanded=False):
+    left, right = st.columns([2, 1])
+
+    with left:
+        st.markdown("### Tone / traits")
+        t1, t2 = st.columns(2)
+
+        with t1:
+            urgency = st.slider("Urgency", 1, 10, 8, key="cw_trait_urgency")
+            data = st.slider("Data Richness", 1, 10, 7, key="cw_trait_data")
+            social = st.slider("Social Proof", 1, 10, 6, key="cw_trait_social")
+            compare = st.slider("Comparative Framing", 1, 10, 6, key="cw_trait_compare")
+
+        with t2:
+            imagery = st.slider("Imagery", 1, 10, 7, key="cw_trait_imagery")
+            convo = st.slider("Conversational Tone", 1, 10, 8, key="cw_trait_convo")
+            fomo = st.slider("FOMO", 1, 10, 7, key="cw_trait_fomo")
+            repetition = st.slider("Repetition", 1, 10, 5, key="cw_trait_repetition")
+
+        traits = {
+            "Urgency": urgency,
+            "Data_Richness": data,
+            "Social_Proof": social,
+            "Comparative_Framing": compare,
+            "Imagery": imagery,
+            "Conversational_Tone": convo,
+            "FOMO": fomo,
+            "Repetition": repetition,
+        }
+
+    with right:
+        st.markdown("### Target")
+        country = st.selectbox("Target country", list(COUNTRY_RULES.keys()), index=0, key="cw_country")
+
+        st.markdown("### AI provider")
+        provider = st.radio("Provider", options=["OpenAI", "Gemini"], index=0, horizontal=True, key="cw_provider")
+
+        # Keep model selections stable even when the other provider is selected.
+        openai_model = st.session_state.get("cw_openai_model", "gpt-4o")
+        gemini_model = st.session_state.get("cw_gemini_model", "gemini-1.5-pro")
+
+        if provider == "OpenAI":
+            openai_model = st.selectbox("OpenAI model", options=["gpt-4o", "gpt-4o-mini"], index=0, key="cw_openai_model")
+        else:
+            gemini_model = st.selectbox(
+                "Gemini model",
+                options=["gemini-1.5-pro", "gemini-1.5-flash"],
+                index=0,
+                key="cw_gemini_model",
+                help="Requires google.api_key in Streamlit secrets (falls back to OpenAI if missing).",
+            )
+
+        st.markdown("### Quality")
+        auto_qa = st.checkbox(
+            "Run QA pass (recommended)",
+            value=True,
+            key="cw_auto_qa",
+            help="Checks structure, disclaimer, length, and compliance; auto-fixes if needed.",
+        )
+
 
 # Tabs
 #
