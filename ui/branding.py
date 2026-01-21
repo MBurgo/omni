@@ -21,7 +21,7 @@ FOOL_COLORS = {
 }
 
 
-def apply_branding() -> None:
+def apply_branding(footer_text: str = "Burgo’s AI Hub") -> None:
     """Apply Burgo's AI Hub styling.
 
     This is intentionally lightweight CSS that:
@@ -189,6 +189,10 @@ a:hover {{
 """,
         unsafe_allow_html=True,
     )
+
+    # Always render the fixed footer label so every page is consistent,
+    # even if the page exits early via st.stop().
+    render_footer(footer_text)
 
 
 def render_footer(text: str = "Burgo’s AI Hub") -> None:

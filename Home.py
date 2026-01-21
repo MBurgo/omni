@@ -1,7 +1,7 @@
 import streamlit as st
 
-from storage.store import create_project, get_current_project_id, list_projects, set_current_project
-from ui.branding import apply_branding, render_footer
+from ui.branding import apply_branding
+from ui.layout import project_banner, require_project
 
 st.set_page_config(
     page_title="Burgo’s AI Hub",
@@ -11,36 +11,11 @@ st.set_page_config(
 )
 apply_branding()
 
-# --- Option A: Auto-create a default project so the portal can run immediately ---
-projects = list_projects()
-if not projects:
-    p = create_project(name="Default", description="Auto-created project")
-    projects = [p]
-    set_current_project(p.id)
-
-cur = get_current_project_id()
-if not cur or not any(p.id == cur for p in projects):
-    set_current_project(projects[0].id)
-    cur = projects[0].id
-
-id_to_name = {p.id: p.name for p in projects}
+# Ensure the portal always has a project selected (Option A: auto-create Default).
+require_project()
 
 with st.sidebar:
-    st.markdown("## Project")
-    sel = st.selectbox(
-        "Current project",
-        options=list(id_to_name.keys()),
-        index=(list(id_to_name.keys()).index(cur) if cur in id_to_name else 0),
-        format_func=lambda pid: id_to_name.get(pid, pid),
-        key="__project_selector_home",
-    )
-    if sel != cur:
-        set_current_project(sel)
-        cur = sel
-
-    st.divider()
-    st.page_link("pages/00_Projects.py", label="Projects", icon="📁")
-    st.page_link("pages/09_Library.py", label="Library", icon="🗂️")
+    project_banner(compact=True)
 
 # --- Page-specific CSS to turn secondary buttons into the home tiles ---
 st.markdown(
@@ -128,5 +103,3 @@ for r_i, row in enumerate(rows):
 
 st.markdown("</div>", unsafe_allow_html=True)  # home-tiles
 st.markdown("</div>", unsafe_allow_html=True)  # home-wrap
-
-render_footer()

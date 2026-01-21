@@ -15,7 +15,7 @@ import streamlit as st
 from google.oauth2.service_account import Credentials
 # NOTE: We use the google-search-results library, but the import is 'serpapi'
 from serpapi import GoogleSearch 
-from utils import get_gspread_client 
+from utils import get_gspread_client, get_secret, get_serpapi_api_key
 
 # ---------------------------------------------------------------------
 # CONFIG
@@ -34,14 +34,36 @@ BROWSER_HEADERS = {
     "Accept-Language": "en-US,en;q=0.9",
 }
 
-SPREADSHEET_ID = "1BzTJgX7OgaA0QNfzKs5AgAx2rvZZjDdorgAz0SD9NZg"
+DEFAULT_SPREADSHEET_ID = "1BzTJgX7OgaA0QNfzKs5AgAx2rvZZjDdorgAz0SD9NZg"
+
+
+def get_spreadsheet_id() -> str:
+    """Return the spreadsheet id used by the Signals pipeline.
+
+    Allows overriding via:
+      - secrets: [signals] spreadsheet_id
+      - env: SIGNALS_SPREADSHEET_ID
+    """
+
+    return (
+        get_secret("signals.spreadsheet_id")
+        or get_secret("SIGNALS_SPREADSHEET_ID")
+        or DEFAULT_SPREADSHEET_ID
+    )
 
 # ---------------------------------------------------------------------
 # 1. SerpAPI Fetch Helpers (Lazy Loaded)
 # ---------------------------------------------------------------------
 def get_api_key():
     """Safely get the API key only when needed."""
-    return st.secrets["serpapi"]["api_key"]
+
+    key = get_serpapi_api_key()
+    if not key:
+        raise RuntimeError(
+            "SerpAPI API key not configured. Add serpapi.api_key to Streamlit secrets "
+            "or set SERPAPI_API_KEY."
+        )
+    return key
 
 def fetch_google_news() -> List[dict]:
     params = {
@@ -242,7 +264,17 @@ def store_data_in_google_sheets(sheet, news_data, top_stories_data, rising_data,
 def main():
     # Initialize connection ONLY when function is called
     client = get_gspread_client()
-    sheet = client.open_by_key(SPREADSHEET_ID)
+    if client is None:
+        raise RuntimeError(
+            "Google Sheets client not configured. Add a service_account block to Streamlit secrets "
+            "(see .streamlit/secrets.toml.example)."
+        )
+
+    sid = get_spreadsheet_id()
+    try:
+        sheet = client.open_by_key(sid)
+    except Exception as e:
+        raise RuntimeError(f"Could not open Google Sheet: {sid}. {e}")
     
     now_utc = dt.datetime.now(dt.timezone.utc)
     print(f"=== Data scrape started {now_utc.isoformat(timespec='seconds')}Z ===")

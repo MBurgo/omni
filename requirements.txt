@@ -9,3 +9,5 @@ beautifulsoup4
 httpx
 google-search-results
 pytrends
+lxml
+pytz

@@ -8,7 +8,7 @@ from engines.audience import ask_persona
 from engines.llm import query_openai
 from engines.personas import Persona, load_personas
 from storage.store import save_artifact
-from ui.branding import FOOL_COLORS, apply_branding, render_footer
+from ui.branding import FOOL_COLORS, apply_branding
 from ui.layout import project_banner, require_project
 
 
@@ -272,7 +272,7 @@ st.markdown(
 
 # Sidebar configuration (keeps the main canvas clean)
 with st.sidebar:
-    project_banner()
+    project_banner(compact=True)
 
     st.divider()
     st.markdown("## Settings")
@@ -311,7 +311,6 @@ st.markdown(
 path, segments, personas = load_personas()
 if not personas:
     st.error("No personas found. Expected personas.json (with segments.personas) in the app root.")
-    render_footer()
     st.stop()
 
 # State
@@ -570,5 +569,3 @@ with focus_tab:
                 with st.expander(f"{r['persona']} ({r['segment']})"):
                     st.markdown(r.get("answer") or "")
 
-
-render_footer()

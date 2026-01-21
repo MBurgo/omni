@@ -12,14 +12,24 @@ from storage.store import save_artifact
 from ui.branding import apply_branding
 from ui.layout import project_banner, require_project
 
-st.set_page_config(page_title="Campaign pack wizard", page_icon="🧩", layout="wide")
+st.set_page_config(
+    page_title="Campaign pack wizard",
+    page_icon="🧩",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
 apply_branding()
 
-st.title("🧩 Campaign pack wizard")
-st.caption("A guided flow: signals -> hook -> draft -> focus group -> packaged output.")
-
-project_banner()
 pid = require_project()
+
+with st.sidebar:
+    project_banner(compact=True)
+
+st.markdown("<div class='page-title'>Campaign pack wizard</div>", unsafe_allow_html=True)
+st.markdown(
+    "<div class='page-subtitle'>A guided flow: signals → hook → draft → focus group → packaged output.</div>",
+    unsafe_allow_html=True,
+)
 
 _, _, personas = load_personas()
 uid_to_p = {p.uid: p for p in personas}

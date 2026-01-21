@@ -6,23 +6,25 @@ from docx import Document
 
 from engines.creative import COUNTRY_RULES, LENGTH_RULES, adapt_copy, generate_copy
 from engines.llm import query_openai
+from storage.store import save_artifact
 from ui.branding import apply_branding
 from ui.layout import project_banner, require_project
-from storage.store import save_artifact
 
-st.set_page_config(page_title="Copywriter", page_icon="✍️", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(
+    page_title="Copywriter",
+    page_icon="✍️",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
 apply_branding()
 
-st.title("✍️ Copywriter")
-st.caption("Generate campaign copy from a hook + brief, or revise an existing draft.")
-
-project_banner()
 pid = require_project()
 
 # Seed from other tools
 seed_hook = st.session_state.get("seed_hook", "")
 seed_details = st.session_state.get("seed_details", "")
 seed_creative = st.session_state.get("seed_creative", "")
+seed_source = st.session_state.get("seed_source", "")
 
 st.session_state.setdefault("generated_copy", "")
 st.session_state.setdefault("revised_copy", "")
@@ -30,7 +32,12 @@ st.session_state.setdefault("adapted_copy", "")
 
 # Sidebar settings
 with st.sidebar:
-    st.subheader("Tone / traits")
+    project_banner(compact=True)
+
+    st.divider()
+    st.markdown("## Settings")
+
+    st.markdown("### Tone / traits")
     traits = {
         "Urgency": st.slider("Urgency", 1, 10, 8),
         "Data_Richness": st.slider("Data Richness", 1, 10, 7),
@@ -46,21 +53,32 @@ with st.sidebar:
     country = st.selectbox("Target country", list(COUNTRY_RULES.keys()), index=0)
     model = st.selectbox("Model", options=["gpt-4o", "gpt-4o-mini"], index=0)
 
+# Hero
+st.markdown("<div class='page-title'>Brief our AI copywriter to deliver campaign assets</div>", unsafe_allow_html=True)
+st.markdown(
+    "<div class='page-subtitle'>Generate campaign copy from a hook + brief, revise an existing draft, or localise copy from another market.</div>",
+    unsafe_allow_html=True,
+)
+
+if seed_source:
+    st.caption(f"Seed loaded from: `{seed_source}`")
+
 # Tabs
 #
-# Home tiles can set st.session_state["copywriter_mode"] to choose the first visible tab.
-# (Streamlit tabs always default to the first tab.)
+# Other pages set st.session_state["copywriter_mode"] to choose the first visible tab.
 mode = (st.session_state.get("copywriter_mode") or "generate").lower().strip()
 
 if mode == "adapt":
     TAB_ADAPT, TAB_GEN, TAB_REVISE = st.tabs(["Localise", "Generate", "Revise"])
+elif mode == "revise":
+    TAB_REVISE, TAB_GEN, TAB_ADAPT = st.tabs(["Revise", "Generate", "Localise"])
 else:
     TAB_GEN, TAB_REVISE, TAB_ADAPT = st.tabs(["Generate", "Revise", "Localise"])
 
 # --- Generate ---
 with TAB_GEN:
     st.subheader("Campaign brief")
-    col1, col2, col3 = st.columns([1,1,1])
+    col1, col2, col3 = st.columns([1, 1, 1])
     with col1:
         copy_type = st.selectbox("Format", options=["Email", "Ads", "Sales Page"], index=0)
     with col2:
@@ -121,6 +139,7 @@ with TAB_GEN:
         with colB:
             if st.button("Use this as starting point in Revise tab"):
                 st.session_state["seed_creative"] = st.session_state.generated_copy
+                st.session_state["copywriter_mode"] = "revise"
                 st.rerun()
 
 # --- Revise ---
@@ -188,7 +207,7 @@ with TAB_ADAPT:
     with c2:
         tgt = st.selectbox("Target", options=list(COUNTRY_RULES.keys()), index=0)
 
-    original = st.text_area("Copy to adapt", height=240)
+    original = st.text_area("Copy to adapt", value=seed_creative if mode == "adapt" else "", height=240)
     notes = st.text_area("Notes (optional)", height=90)
 
     if st.button("Adapt", type="primary"):

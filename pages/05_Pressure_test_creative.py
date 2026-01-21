@@ -7,6 +7,7 @@ from engines.personas import Persona, load_personas
 from storage.store import save_artifact
 from ui.branding import apply_branding
 from ui.layout import project_banner, require_project
+from ui.seed import set_copywriter_seed
 
 
 def _short_persona_label(p: Persona) -> str:
@@ -16,7 +17,7 @@ def _short_persona_label(p: Persona) -> str:
 
 st.set_page_config(
     page_title="Pressure test creative",
-    page_icon="",
+    page_icon="🧠",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -55,7 +56,7 @@ div[data-testid="stExpander"] summary:hover {
 
 # --- Sidebar (keep main canvas clean) ---
 with st.sidebar:
-    project_banner()
+    project_banner(compact=True)
     st.divider()
     st.caption("This tool runs a ‘Believer vs Skeptic’ debate and then produces a moderator analysis + rewrite.")
 
@@ -348,14 +349,18 @@ with tabs[3]:
             else:
                 new_text = json.dumps(rw, ensure_ascii=False, indent=2)
 
-            st.session_state["seed_creative"] = new_text
-            st.session_state["seed_source"] = "focus_group_rewrite"
-            st.session_state["copywriter_mode"] = "adapt"
+            set_copywriter_seed(
+                mode="revise",
+                creative=new_text,
+                source="focus_group_rewrite",
+            )
             st.switch_page("pages/06_Write_campaign_assets.py")
 
     with colY:
         if st.button("Send original creative to Copywriter"):
-            st.session_state["seed_creative"] = creative
-            st.session_state["seed_source"] = "focus_group_original"
-            st.session_state["copywriter_mode"] = "adapt"
+            set_copywriter_seed(
+                mode="revise",
+                creative=creative,
+                source="focus_group_original",
+            )
             st.switch_page("pages/06_Write_campaign_assets.py")

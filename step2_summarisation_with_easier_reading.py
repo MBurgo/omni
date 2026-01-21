@@ -1,68 +1,123 @@
-import streamlit as st
-from openai import OpenAI
-import gspread
-import pandas as pd
-import time
+"""Step 2: Summarise Signals sheet data into a human-friendly briefing.
+
+This module is used by the Streamlit portal (pages/01_Find_spikes_today.py).
+
+Key changes vs the original script:
+- No secrets are read at import time (so the app can load without hard-crashing)
+- Google Sheets + OpenAI clients are resolved lazily inside functions
+- Missing configuration raises clear RuntimeError messages
+"""
+
+from __future__ import annotations
+
 import datetime as dt
+import time
+from typing import Optional
+
+import pandas as pd
 import pytz
-from google.oauth2.service_account import Credentials
 
-# Define the scope for Google Sheets
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+from utils import get_gspread_client, get_openai_client, get_secret
 
-# Load the service account info from Streamlit secrets
-creds_dict = st.secrets["service_account"]
-creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-client_gs = gspread.authorize(creds)
-
-# Spreadsheet ID
-spreadsheet_id = "1BzTJgX7OgaA0QNfzKs5AgAx2rvZZjDdorgAz0SD9NZg"
-sheet = client_gs.open_by_key(spreadsheet_id)
-
-# Initialize OpenAI Client
-client = OpenAI(api_key=st.secrets["openai"]["api_key"])
+DEFAULT_SPREADSHEET_ID = "1BzTJgX7OgaA0QNfzKs5AgAx2rvZZjDdorgAz0SD9NZg"
+DEFAULT_MODEL = "gpt-4o"
 
 
-def read_data(sheet, title):
+def get_spreadsheet_id() -> str:
+    """Return the spreadsheet id used by the Signals pipeline.
+
+    Allows overriding via:
+      - secrets: [signals] spreadsheet_id
+      - env: SIGNALS_SPREADSHEET_ID
+    """
+
+    return (
+        get_secret("signals.spreadsheet_id")
+        or get_secret("SIGNALS_SPREADSHEET_ID")
+        or DEFAULT_SPREADSHEET_ID
+    )
+
+
+def get_sheet():
+    """Return an open gspread Spreadsheet instance (or raise with a friendly message)."""
+
+    client = get_gspread_client()
+    if client is None:
+        raise RuntimeError(
+            "Google Sheets client not configured. Add a service_account block to Streamlit secrets "
+            "(see .streamlit/secrets.toml.example)."
+        )
+
+    sid = get_spreadsheet_id()
+    try:
+        return client.open_by_key(sid)
+    except Exception as e:
+        raise RuntimeError(f"Could not open Google Sheet: {sid}. {e}")
+
+
+def get_openai():
+    """Return a configured OpenAI client (or raise with a friendly message)."""
+
+    client = get_openai_client()
+    if client is None:
+        raise RuntimeError(
+            "OpenAI client not configured. Add openai.api_key to Streamlit secrets or set OPENAI_API_KEY."
+        )
+    return client
+
+
+def read_data(sheet, title: str) -> pd.DataFrame:
     """Reads data from a specified Google Sheet worksheet into a pandas DataFrame."""
-    worksheet = sheet.worksheet(title)
+
+    try:
+        worksheet = sheet.worksheet(title)
+    except Exception as e:
+        raise RuntimeError(f"Worksheet not found (or not accessible): '{title}'. {e}")
+
     data = worksheet.get_all_records()
     return pd.DataFrame(data)
 
 
-def format_data_for_prompt(news_data, top_stories_data, rising_data, top_data):
-    """
-    Formats data from four different sources (news, top stories, trends rising, trends top)
-    into a single string for the prompt.
-    """
+def format_data_for_prompt(
+    news_data: pd.DataFrame,
+    top_stories_data: pd.DataFrame,
+    rising_data: pd.DataFrame,
+    top_data: pd.DataFrame,
+) -> str:
+    """Format Signals sheet data into a single prompt string."""
+
     formatted_data = "Google News Data:\n"
-    for index, row in news_data.iterrows():
-        formatted_data += f"- Title: {row.get('Title', '')}, Link: {row.get('Link', '')}, Snippet: {row.get('Snippet', '')}\n"
+    for _, row in news_data.iterrows():
+        formatted_data += (
+            f"- Title: {row.get('Title', '')}, Link: {row.get('Link', '')}, "
+            f"Snippet: {row.get('Snippet', '')}\n"
+        )
 
     formatted_data += "\nTop Stories Data:\n"
-    for index, row in top_stories_data.iterrows():
-        formatted_data += f"- Title: {row.get('Title', '')}, Link: {row.get('Link', '')}, Snippet: {row.get('Snippet', '')}\n"
+    for _, row in top_stories_data.iterrows():
+        formatted_data += (
+            f"- Title: {row.get('Title', '')}, Link: {row.get('Link', '')}, "
+            f"Snippet: {row.get('Snippet', '')}\n"
+        )
 
     formatted_data += "\nGoogle Trends Rising Data:\n"
-    for index, row in rising_data.iterrows():
+    for _, row in rising_data.iterrows():
         formatted_data += f"- Query: {row.get('Query', '')}, Value: {row.get('Value', '')}\n"
 
     formatted_data += "\nGoogle Trends Top Data:\n"
-    for index, row in top_data.iterrows():
+    for _, row in top_data.iterrows():
         formatted_data += f"- Query: {row.get('Query', '')}, Value: {row.get('Value', '')}\n"
 
     return formatted_data
 
 
-def summarize_data(formatted_data):
-    """
-    Summarize data using the new OpenAI v1.0+ client structure.
-    """
+def summarize_data(formatted_data: str, model: str = DEFAULT_MODEL) -> str:
+    """Summarise data using OpenAI."""
+
     local_tz = pytz.timezone("Australia/Sydney")
     now_local = dt.datetime.now(local_tz)
     current_date = now_local.strftime("%Y-%m-%d")
 
-    # System-like context for the prompt
     system_like_context = (
         "You are a seasoned financial news editor for an Australian financial news publisher. "
         "Your responsibilities include analyzing financial data and news sources to identify "
@@ -74,7 +129,6 @@ def summarize_data(formatted_data):
         "objective tone.\n\n"
     )
 
-    # Instructions for the summarization
     instructions = (
         f"As a news editor for an Australian financial news publisher, your task is to analyze "
         f"and summarize the latest data from various sources related to the Australian stock market. "
@@ -86,9 +140,9 @@ def summarize_data(formatted_data):
         f"2. Analyze the \"Google Trends Top\" data to identify the top search queries.\n"
         f"3. Review the articles from \"Google News\" to identify recurring themes and notable entities.\n"
         f"4. Review the articles from \"Top Stories\" for the query \"ASX 200\" to identify significant news stories.\n\n"
-        f"Please include the following sections in your report using plain text with single asterisks (*) for bold text. "
-        f"Use lines of hyphens (\"-\" repeated) to create horizontal lines as separators before and after major sections "
-        f"and brief titles. Do not use Markdown headers or `###`.\n\n"
+        f"Please include the following sections in your report using plain text with single asterisks (*) "
+        f"for bold text. Use lines of hyphens (\"-\" repeated) to create horizontal lines as separators "
+        f"before and after major sections and brief titles. Do not use Markdown headers or `###`.\n\n"
         f"Include the date of summarization ({current_date}) in your report.\n\n"
         f"The report should have the following structure:\n\n"
         f"--------------------------------------------------\n"
@@ -113,7 +167,6 @@ def summarize_data(formatted_data):
         f"Do not use Markdown headers or `###`.\n"
     )
 
-    # Combine context, instructions, and data into one user prompt
     big_prompt = (
         f"{system_like_context}"
         f"{instructions}\n"
@@ -121,56 +174,56 @@ def summarize_data(formatted_data):
         f"{formatted_data}"
     )
 
-    messages = [
-        {
-            "role": "user",
-            "content": big_prompt
-        }
-    ]
+    messages = [{"role": "user", "content": big_prompt}]
 
-    # Call the OpenAI API (New v1.0+ Syntax)
-    response = client.chat.completions.create(
-        model="gpt-4o",  # Using gpt-4o as 'gpt-4.1' is not a standard public model alias
-        messages=messages
-    )
-    
-    # New Access Method
-    summary = response.choices[0].message.content
-    return summary
+    client = get_openai()
+    try:
+        resp = client.chat.completions.create(
+            model=model or DEFAULT_MODEL,
+            messages=messages,
+            temperature=0.3,
+        )
+        return (resp.choices[0].message.content or "").strip()
+    except Exception as e:
+        raise RuntimeError(f"OpenAI error: {e}")
 
 
-def store_summary_in_google_sheets(sheet, summary):
-    """Stores the summary data in a 'Summaries' worksheet, appending a row."""
-    summary_sheet = sheet.worksheet("Summaries")
+def store_summary_in_google_sheets(sheet, summary: str) -> None:
+    """Append the summary to a 'Summaries' worksheet (creating it if needed)."""
+
+    if not summary or not str(summary).strip():
+        raise RuntimeError("Cannot store empty summary.")
+
+    try:
+        summary_sheet = sheet.worksheet("Summaries")
+    except Exception:
+        # Create on demand
+        summary_sheet = sheet.add_worksheet(title="Summaries", rows="2000", cols="2")
+
     summary_sheet.append_row([summary])
     time.sleep(1)  # Delay to prevent exceeding quota
 
 
-def generate_summary():
-    """
-    Pulls data from Google Sheets, summarizes using the AI model,
-    stores the summary in the 'Summaries' worksheet, and returns it.
-    """
-    # Read data from relevant worksheets
+def generate_summary(model: str = DEFAULT_MODEL) -> str:
+    """Pull data from Google Sheets, summarise, store it, and return the summary text."""
+
+    sheet = get_sheet()
+
     news_data = read_data(sheet, "Google News")
     top_stories_data = read_data(sheet, "Top Stories")
     rising_data = read_data(sheet, "Google Trends Rising")
     top_data = read_data(sheet, "Google Trends Top")
 
-    # Format all data into a single string
     formatted_data = format_data_for_prompt(news_data, top_stories_data, rising_data, top_data)
 
-    # Generate summary via OpenAI
-    summary = summarize_data(formatted_data)
+    summary = summarize_data(formatted_data, model=model)
 
-    # Store the summary in "Summaries" worksheet
     store_summary_in_google_sheets(sheet, summary)
 
-    # Return the summary text so we can display it in Streamlit
     return summary
 
 
-def main():
+def main() -> None:
     generate_summary()
 
 

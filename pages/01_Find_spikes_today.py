@@ -4,8 +4,9 @@ import streamlit as st
 
 from engines.sheets_briefs import convert_single_asterisk_to_bold, parse_step2_report
 from storage.store import save_artifact
-from ui.branding import apply_branding, render_footer
+from ui.branding import apply_branding
 from ui.layout import project_banner, require_project
+from ui.seed import set_copywriter_seed
 
 st.set_page_config(
     page_title="Market signals",
@@ -17,7 +18,7 @@ apply_branding()
 
 # --- Sidebar: project + fixed config (keeps the main page clean like the screenshots) ---
 with st.sidebar:
-    project_banner()
+    project_banner(compact=True)
 
     st.divider()
     st.markdown("## Run configuration")
@@ -126,13 +127,14 @@ if md:
                 with st.expander(f"{i}. {title}"):
                     st.markdown(body)
                     if st.button("Send to Copywriter", key=f"send_copy_{i}"):
-                        st.session_state["seed_hook"] = title
-                        st.session_state["seed_details"] = body
-                        st.session_state["seed_source"] = "signals_daily_step2"
-                        st.session_state["copywriter_mode"] = "generate"
+                        set_copywriter_seed(
+                            mode="generate",
+                            hook=title,
+                            details=body,
+                            source="signals_daily_step2",
+                        )
                         st.switch_page("pages/06_Write_campaign_assets.py")
     else:
         # Fallback: display the whole report.
         st.markdown(md)
 
-render_footer()

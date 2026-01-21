@@ -4,7 +4,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from storage.store import save_artifact
-from ui.branding import apply_branding, render_footer
+from ui.branding import apply_branding
 from ui.layout import project_banner, require_project
 from utils import get_secret
 
@@ -25,7 +25,7 @@ url = (
 
 # --- Sidebar: project + embed settings ---
 with st.sidebar:
-    project_banner()
+    project_banner(compact=True)
 
     st.divider()
     st.markdown("## Settings")
@@ -63,7 +63,6 @@ if st.session_state.futurist_started:
             "Futurist embedded app URL not configured. Add this to Streamlit secrets:\n\n"
             "[futurist]\nembed_url = \"https://...\""
         )
-        render_footer()
         st.stop()
 
     st.divider()
@@ -131,4 +130,3 @@ if st.session_state.futurist_started:
         with colB:
             st.page_link("pages/09_Library.py", label="Open Library", icon="🗂️")
 
-render_footer()

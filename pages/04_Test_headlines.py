@@ -8,18 +8,15 @@ from engines.personas import load_personas, persona_label
 from storage.store import save_artifact
 from ui.branding import apply_branding
 from ui.layout import project_banner, require_project
+from ui.seed import set_copywriter_seed
 
-st.set_page_config(page_title="Test headlines", page_icon="🧪", layout="wide")
-apply_branding()
-
-st.title("🧪 Test headlines")
-st.caption(
-    "Get synthetic investor reactions to headlines (click intent, trust, implied promise). "
-    "Add 1 headline for a review, or enable auto-variants to create a comparison set."
+st.set_page_config(
+    page_title="Test headlines",
+    page_icon="🧪",
+    layout="wide",
+    initial_sidebar_state="collapsed",
 )
-
-project_banner()
-pid = require_project()
+apply_branding()
 
 
 def _clean_headline(s: str) -> str:
@@ -92,24 +89,56 @@ Return ONLY JSON (no markdown, no commentary) in this schema:
     return cleaned[: max(0, n)]
 
 
+# ---- Data + project ----
 _, segments, personas = load_personas()
 if not personas:
     st.error("No personas found.")
     st.stop()
 
-segment_opts = ["All"] + [s.get("id") or s.get("label") for s in segments]
-segment_label = {s.get("id") or s.get("label"): s.get("label", "Unknown") for s in segments}
-seg = st.selectbox(
-    "Segment",
-    options=segment_opts,
-    format_func=lambda x: "All" if x == "All" else segment_label.get(x, x),
+pid = require_project()
+
+# Sidebar: project + controls
+with st.sidebar:
+    project_banner(compact=True)
+
+    st.divider()
+    st.markdown("## Settings")
+
+    model = st.selectbox("Model", options=["gpt-4o", "gpt-4o-mini"], index=1)
+
+    segment_opts = ["All"] + [s.get("id") or s.get("label") for s in segments]
+    segment_label = {s.get("id") or s.get("label"): s.get("label", "Unknown") for s in segments}
+    seg = st.selectbox(
+        "Segment",
+        options=segment_opts,
+        format_func=lambda x: "All" if x == "All" else segment_label.get(x, x),
+    )
+
+    if seg == "All":
+        visible = personas
+    else:
+        visible = [p for p in personas if p.segment_id == seg or p.segment_label == segment_label.get(seg)]
+
+    uid_to_p = {p.uid: p for p in visible}
+
+    selected_uids = st.multiselect(
+        "Personas to test",
+        options=[p.uid for p in visible],
+        default=[p.uid for p in visible[:2]],
+        format_func=lambda uid: persona_label(uid_to_p[uid]),
+    )
+
+    st.caption("Tip: start with 2 personas, then expand.")
+
+
+# ---- Hero ----
+st.markdown("<div class='page-title'>Test headlines with AI personas</div>", unsafe_allow_html=True)
+st.markdown(
+    "<div class='page-subtitle'>Get synthetic investor reactions to headlines (click intent, trust, implied promise). Add 1 headline for a qualitative review, or enable auto-variants to create a comparison set.</div>",
+    unsafe_allow_html=True,
 )
 
-if seg == "All":
-    visible = personas
-else:
-    visible = [p for p in personas if p.segment_id == seg or p.segment_label == segment_label.get(seg)]
-
+# Inputs
 headlines_raw = st.text_area(
     "Headlines (one per line)",
     height=200,
@@ -134,26 +163,15 @@ if single_headline_entered:
         auto_generate_variants = st.checkbox(
             "Generate variants so you can compare and pick a winner",
             value=True,
-            help="If enabled, the portal will generate a few alternatives and run the normal leaderboard. "
-            "If disabled, you’ll get a qualitative review of your single headline.",
+            help=(
+                "If enabled, the portal will generate a few alternatives and run the normal leaderboard. "
+                "If disabled, you’ll get a qualitative review of your single headline."
+            ),
         )
         num_variants = st.slider("How many variants?", min_value=2, max_value=6, value=3, step=1)
 
-uid_to_p = {p.uid: p for p in visible}
-selected_uids = st.multiselect(
-    "Personas to test",
-    options=[p.uid for p in visible],
-    default=[p.uid for p in visible[:2]],
-    format_func=lambda uid: persona_label(uid_to_p[uid]),
-)
-
-colA, colB = st.columns([1, 2])
-with colA:
-    model = st.selectbox("Model", options=["gpt-4o", "gpt-4o-mini"], index=1)
-with colB:
-    st.caption("Tip: start with 2 personas, then expand.")
-
-if st.button("Run headline test", type="primary"):
+run = st.button("Run headline test", type="primary")
+if run:
     headlines = [_clean_headline(h) for h in headlines_raw.splitlines() if _clean_headline(h)]
     headlines = _dedupe_preserve_order(headlines)
 
@@ -298,6 +316,7 @@ def _headline_display(i: int) -> str:
     return f"{i}. {headlines[i-1]}{src}"
 
 
+st.divider()
 st.subheader("Headlines under test")
 for i in range(1, len(headlines) + 1):
     st.markdown(f"- {_headline_display(i)}")
@@ -330,10 +349,13 @@ if mode == "compare":
         index=default_index,
     )
 
-    if st.button("Send selected headline to Copywriter"):
-        st.session_state["seed_hook"] = headlines[winning_idx - 1]
-        st.session_state["seed_details"] = context_used
-        st.session_state["seed_source"] = "headline_test"
+    if st.button("Send selected headline to Copywriter", type="primary"):
+        set_copywriter_seed(
+            mode="generate",
+            hook=headlines[winning_idx - 1],
+            details=context_used,
+            source="headline_test",
+        )
         st.switch_page("pages/06_Write_campaign_assets.py")
 
 # -----------------------
@@ -376,9 +398,12 @@ else:
 
     st.divider()
     if st.button("Send this headline to Copywriter", type="primary"):
-        st.session_state["seed_hook"] = headlines[0]
-        st.session_state["seed_details"] = context_used
-        st.session_state["seed_source"] = "headline_review"
+        set_copywriter_seed(
+            mode="generate",
+            hook=headlines[0],
+            details=context_used,
+            source="headline_review",
+        )
         st.switch_page("pages/06_Write_campaign_assets.py")
 
 # -----------------------

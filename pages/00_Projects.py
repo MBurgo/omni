@@ -2,12 +2,27 @@ import streamlit as st
 
 from storage.store import create_project, get_current_project_id, list_projects, set_current_project
 from ui.branding import apply_branding
+from ui.layout import human_time, project_banner, require_project
 
-st.set_page_config(page_title="Projects", page_icon="📁", layout="centered")
+st.set_page_config(
+    page_title="Projects",
+    page_icon="📁",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
 apply_branding()
 
-st.title("📁 Projects")
-st.caption("Projects are lightweight containers for briefs, drafts, tests, and outputs.")
+# Ensure a project always exists (Option A: auto-create Default).
+require_project()
+
+with st.sidebar:
+    project_banner(compact=True)
+
+st.markdown("<div class='page-title'>Projects</div>", unsafe_allow_html=True)
+st.markdown(
+    "<div class='page-subtitle'>Projects are lightweight containers for briefs, drafts, tests, and outputs. Create one for each campaign, sprint, or experiment.</div>",
+    unsafe_allow_html=True,
+)
 
 # --- Create project ---
 with st.expander("Create a new project", expanded=False):
@@ -24,32 +39,42 @@ with st.expander("Create a new project", expanded=False):
                 st.success("Project created.")
                 st.rerun()
 
-# --- List projects ---
 projects = list_projects()
 if not projects:
     st.info("No projects yet. Create one above.")
     st.stop()
 
-current = get_current_project_id()
-id_to_name = {p.id: p.name for p in projects}
+current = get_current_project_id() or projects[0].id
+if not any(p.id == current for p in projects):
+    current = projects[0].id
+    set_current_project(current)
 
-st.subheader("Select a project")
-sel = st.selectbox(
-    "Current project",
-    options=list(id_to_name.keys()),
-    format_func=lambda pid: id_to_name.get(pid, pid),
-    index=(list(id_to_name.keys()).index(current) if current in id_to_name else 0),
-)
-if sel != current:
-    set_current_project(sel)
-    st.rerun()
+left, right = st.columns([2, 3], gap="large")
 
-# --- Details ---
-selected = next((p for p in projects if p.id == sel), None)
-if selected:
-    st.divider()
-    st.markdown(f"**{selected.name}**")
-    if selected.description:
-        st.write(selected.description)
+with left:
+    st.subheader("All projects")
 
-    st.caption(f"Project ID: `{selected.id}`")
+    options = [p.id for p in projects]
+
+    def fmt(pid: str) -> str:
+        p = next(x for x in projects if x.id == pid)
+        return f"{human_time(p.updated_at)} — {p.name}"
+
+    sel = st.radio("", options=options, format_func=fmt, index=options.index(current) if current in options else 0)
+    if sel != current:
+        set_current_project(sel)
+        current = sel
+        st.rerun()
+
+with right:
+    st.subheader("Details")
+    p = next((x for x in projects if x.id == current), None)
+    if p:
+        st.markdown(f"**{p.name}**")
+        if p.description:
+            st.write(p.description)
+        st.caption(f"Project ID: `{p.id}`")
+        st.caption(f"Created: {human_time(p.created_at)} | Updated: {human_time(p.updated_at)}")
+
+        st.divider()
+        st.page_link("pages/09_Library.py", label="Open Library", icon="🗂️")

@@ -38,8 +38,14 @@ def _ensure_default_project() -> str:
     return projects[0].id
 
 
-def project_banner() -> Optional[str]:
-    """Render a compact project selector banner. Return selected project_id."""
+def project_banner(compact: bool = False) -> Optional[str]:
+    """Render a project selector.
+
+    - compact=False (default): 3-column banner used in the main canvas.
+    - compact=True: sidebar-friendly vertical layout.
+
+    Returns the selected project_id.
+    """
 
     # Ensure there's always at least one project so the portal can run.
     current = _ensure_default_project()
@@ -51,8 +57,8 @@ def project_banner() -> Optional[str]:
     if current and current in id_to_name:
         default_index = list(id_to_name.keys()).index(current)
 
-    cols = st.columns([3, 1, 1])
-    with cols[0]:
+    if compact:
+        st.markdown("## Project")
         sel = st.selectbox(
             "Current project",
             options=list(id_to_name.keys()),
@@ -64,10 +70,27 @@ def project_banner() -> Optional[str]:
             set_current_project(sel)
             current = sel
 
-    with cols[1]:
+        st.divider()
         st.page_link("pages/00_Projects.py", label="Projects", icon="📁")
-    with cols[2]:
         st.page_link("pages/09_Library.py", label="Library", icon="🗂️")
+    else:
+        cols = st.columns([3, 1, 1])
+        with cols[0]:
+            sel = st.selectbox(
+                "Current project",
+                options=list(id_to_name.keys()),
+                index=default_index,
+                format_func=lambda pid: id_to_name.get(pid, pid),
+                key="__project_selector",
+            )
+            if sel != current:
+                set_current_project(sel)
+                current = sel
+
+        with cols[1]:
+            st.page_link("pages/00_Projects.py", label="Projects", icon="📁")
+        with cols[2]:
+            st.page_link("pages/09_Library.py", label="Library", icon="🗂️")
 
     return current
 
