@@ -229,6 +229,27 @@ st.set_page_config(
 )
 apply_branding()
 
+# Page-level layout tweaks to reduce perceived density.
+st.markdown(
+    """
+<style>
+/* Slightly reduce vertical spacing between widgets */
+div[data-testid="stVerticalBlock"] > div { padding-top: 0.35rem; padding-bottom: 0.35rem; }
+
+/* Tighten heading margins */
+h3 { margin-top: 0.85rem; margin-bottom: 0.40rem; }
+h4 { margin-top: 0.70rem; margin-bottom: 0.30rem; }
+
+/* Tighten captions */
+div[data-testid="stCaptionContainer"] { margin-top: -0.25rem; }
+
+/* Reduce extra whitespace above text areas */
+label[data-testid="stWidgetLabel"] { margin-bottom: 0.20rem; }
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
 pid = hub_nav()
 
 # Seed from other tools
@@ -367,31 +388,44 @@ st.session_state["copywriter_mode"] = selected_mode
 def render_generate() -> None:
     st.subheader("Campaign brief")
 
-    # Output choices
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col1:
-        copy_type = st.selectbox(
-            "Format",
-            options=["Email", "Ads", "Sales Page"],
-            index=0,
-            key="cw_copy_type",
-        )
-    with col2:
-        length_choice = st.selectbox(
-            "Length",
-            options=list(LENGTH_RULES.keys()),
-            index=1,
-            key="cw_length_choice",
-        )
-    with col3:
-        st.write("")
+    # Output choices (optional) — default values are enough for most users.
+    current_copy_type = st.session_state.get("cw_copy_type", "Email")
+    current_length_choice = st.session_state.get(
+        "cw_length_choice",
+        list(LENGTH_RULES.keys())[1] if LENGTH_RULES else "Medium (200-500 words)",
+    )
+    st.caption(f"Defaults: **{current_copy_type}** • **{current_length_choice}**. Change if needed.")
+
+    with st.expander("Output settings (optional)", expanded=False):
+        c1, c2 = st.columns(2)
+        with c1:
+            st.selectbox(
+                "Format",
+                options=["Email", "Ads", "Sales Page"],
+                index=0,
+                key="cw_copy_type",
+            )
+        with c2:
+            st.selectbox(
+                "Length",
+                options=list(LENGTH_RULES.keys()),
+                index=1,
+                key="cw_length_choice",
+            )
+
+    # Use the resolved selections everywhere below.
+    copy_type = st.session_state.get("cw_copy_type", "Email")
+    length_choice = st.session_state.get(
+        "cw_length_choice",
+        list(LENGTH_RULES.keys())[1] if LENGTH_RULES else "Medium (200-500 words)",
+    )
 
     st.markdown("#### How would you like to brief in our copywriter?")
 
     brief_mode_label = st.radio(
         "Brief mode",
         options=[
-            "Answer a few questions",
+            "Answer a few questions (recommended)",
             "Paste notes or upload a brief",
             "Guided brief (form)",
         ],
@@ -400,16 +434,15 @@ def render_generate() -> None:
         label_visibility="collapsed",
     )
 
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.caption("**Recommended.** Answer 3–6 questions and the brief will fill itself.")
-    with c2:
-        st.caption("Paste a ticket/Slack thread/bullets, or upload a file, then extract.")
-    with c3:
-        st.caption("Fill in the brief fields directly (fastest for experienced users).")
+    BRIEF_MODE_HELP = {
+        "Answer a few questions (recommended)": "Answer 3–6 questions and the brief will fill itself.",
+        "Paste notes or upload a brief": "Paste a ticket/Slack thread/bullets, or upload a file, then extract.",
+        "Guided brief (form)": "Fill in the brief fields directly (fastest for experienced users).",
+    }
+    st.caption(BRIEF_MODE_HELP.get(brief_mode_label, ""))
 
     # Map user-facing labels to internal mode keys
-    if brief_mode_label == "Answer a few questions":
+    if brief_mode_label.startswith("Answer a few questions"):
         brief_mode = "Conversation"
     elif brief_mode_label == "Paste notes or upload a brief":
         brief_mode = "Paste/Upload"
@@ -583,7 +616,7 @@ def render_generate() -> None:
 
     # ---- Guided form mode ----
     else:
-        st.caption("Fill out the brief fields below. Best results come from including both fields.")
+        st.caption("Fill out the brief fields below. Only one field is required.")
 
     # ---- Brief fields ----
     show_fields_in_expander = brief_mode in {"Conversation", "Paste/Upload"}
@@ -597,17 +630,16 @@ def render_generate() -> None:
         fields_container = st.container()
 
     with fields_container:
-        st.text_area(
+        st.text_input(
             "Hook / angle (optional)",
             key="cw_brief_hook",
-            height=80,
             placeholder="e.g., The ASX theme investors are missing…",
         )
 
         st.text_area(
             "What are we promoting? Include key details",
             key="cw_brief_details",
-            height=180,
+            height=140,
             placeholder="Product/offer details, who it’s for, must-say info, proof points you can use…",
         )
 
@@ -624,7 +656,6 @@ def render_generate() -> None:
             st.text_input("Stocks to tease (optional)", key="cw_brief_stocks")
             st.text_area("Quotes / timely news (optional)", key="cw_brief_quotes_news", height=110)
 
-    st.markdown("#### Final step")
     st.caption("Optional: adjust copy settings (tone, target country, model).")
     render_copy_settings(show_country=True, expanded=False)
 
