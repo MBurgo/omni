@@ -45,6 +45,26 @@ def _safe_str(x: Any) -> str:
     return str(x).strip() if x is not None else ""
 
 
+def _normalise_brief_mode(value: Any) -> str:
+    """
+    Streamlit radios/selects require st.session_state[key] to be in options.
+    This normalises older label values to stable internal keys.
+    """
+    if value in ("Conversation", "Paste/Upload", "Form"):
+        return str(value)
+
+    s = _safe_str(value).lower()
+
+    if "question" in s or "chat" in s:
+        return "Conversation"
+    if "paste" in s or "upload" in s or "doc" in s or "file" in s or "notes" in s:
+        return "Paste/Upload"
+    if "form" in s or "guided" in s or "fill" in s:
+        return "Form"
+
+    return "Form"
+
+
 def extract_text_from_upload(upload: Any) -> str:
     """Extract text from a Streamlit UploadedFile (txt/docx/html/pdf)."""
     if upload is None:
@@ -287,7 +307,10 @@ st.session_state.setdefault("cw_auto_qa", True)
 
 # Generate options
 st.session_state.setdefault("cw_copy_type", "Email")
-st.session_state.setdefault("cw_length_choice", list(LENGTH_RULES.keys())[1] if LENGTH_RULES else "Medium (200-500 words)")
+st.session_state.setdefault(
+    "cw_length_choice",
+    list(LENGTH_RULES.keys())[1] if LENGTH_RULES else "Medium (200-500 words)",
+)
 
 # Brief fields (explicit keys so they can be populated by upload/extraction/dialogue)
 st.session_state.setdefault("cw_brief_hook", "")
@@ -324,20 +347,25 @@ if seed_md and not any(
     st.session_state["cw_brief_quotes_news"] = _safe_str(seed_md.get("quotes_news"))
 
 # Dialogue + paste/upload state
-st.session_state.setdefault("cw_brief_mode", "Guided brief (form)")
+# IMPORTANT: store a stable internal key here (Conversation | Paste/Upload | Form)
+st.session_state.setdefault("cw_brief_mode", "Form")
 st.session_state.setdefault("cw_unstructured_input", "")
 st.session_state.setdefault("cw_last_extract_raw", "")
 st.session_state.setdefault("cw_brief_chat", [])
 st.session_state.setdefault("cw_brief_chat_ready", False)
 st.session_state.setdefault("cw_last_upload_name", "")
 st.session_state.setdefault("cw_brief_fields_expanded", False)
+st.session_state.setdefault("cw_last_incoming_mode", None)
 
 
 # -------------------------
 # Hero
 # -------------------------
 
-st.markdown("<div class='page-title'>Brief our AI copywriter to deliver campaign assets</div>", unsafe_allow_html=True)
+st.markdown(
+    "<div class='page-title'>Brief our AI copywriter to deliver campaign assets</div>",
+    unsafe_allow_html=True,
+)
 st.markdown(
     "<div class='page-subtitle'>Generate campaign copy from a hook + brief, revise an existing draft, or localise copy from another market.</div>",
     unsafe_allow_html=True,
@@ -422,32 +450,29 @@ def render_generate() -> None:
 
     st.markdown("#### How would you like to brief in our copywriter?")
 
-    brief_mode_label = st.radio(
+    BRIEF_MODE_LABELS = {
+        "Conversation": "Answer a few questions (chat to the AI to build brief)",
+        "Paste/Upload": "Got a brief document or notes file? Upload a doc",
+        "Form": "Guided brief (fill in the form)",
+    }
+    BRIEF_MODE_HELP = {
+        "Conversation": "Recommended. Answer 3–6 questions and the brief will fill itself.",
+        "Paste/Upload": "Paste a ticket/Slack thread/bullets, or upload a file, then extract.",
+        "Form": "Fill in the brief fields directly (fastest for experienced users).",
+    }
+
+    # Ensure stored state is always a valid option.
+    st.session_state["cw_brief_mode"] = _normalise_brief_mode(st.session_state.get("cw_brief_mode"))
+
+    brief_mode = st.radio(
         "Brief mode",
-        options=[
-            "Guided brief (fill in the form)",
-            "Answer a few questions (chat to the AI to build brief)",
-            "Got a brief document or notes file? Upload a doc",
-        ],
+        options=["Conversation", "Paste/Upload", "Form"],
+        format_func=lambda k: BRIEF_MODE_LABELS.get(k, k),
         horizontal=True,
         key="cw_brief_mode",
         label_visibility="collapsed",
     )
-
-    BRIEF_MODE_HELP = {
-        "Answer a few questions": "Answer 3–6 questions and the brief will fill itself.",
-        "Paste notes or upload a brief": "Paste a ticket/Slack thread/bullets, or upload a file, then extract.",
-        "Guided brief form": "Fill in the brief fields directly (fastest for experienced users).",
-    }
-    st.caption(BRIEF_MODE_HELP.get(brief_mode_label, ""))
-
-    # Map user-facing labels to internal mode keys
-    if brief_mode_label.startswith("Answer a few questions"):
-        brief_mode = "Conversation"
-    elif brief_mode_label == "Paste notes or upload a brief":
-        brief_mode = "Paste/Upload"
-    else:
-        brief_mode = "Form"
+    st.caption(BRIEF_MODE_HELP.get(brief_mode, ""))
 
     # ---- Conversation mode ----
     if brief_mode == "Conversation":
@@ -926,9 +951,19 @@ def render_revise() -> None:
     if method == "Rewrite using current trait sliders (preserve structure)":
         c1, c2 = st.columns(2)
         with c1:
-            r_copy_type = st.selectbox("Format", options=["Email", "Ads", "Sales Page"], index=0, key="cw_revise_copy_type")
+            r_copy_type = st.selectbox(
+                "Format",
+                options=["Email", "Ads", "Sales Page"],
+                index=0,
+                key="cw_revise_copy_type",
+            )
         with c2:
-            r_length = st.selectbox("Length", options=list(LENGTH_RULES.keys()), index=1, key="cw_revise_length")
+            r_length = st.selectbox(
+                "Length",
+                options=list(LENGTH_RULES.keys()),
+                index=1,
+                key="cw_revise_length",
+            )
     else:
         r_copy_type = "Email"
         r_length = "Medium (200-500 words)"
