@@ -451,14 +451,14 @@ def render_generate() -> None:
     st.markdown("#### How would you like to brief in our copywriter?")
 
     BRIEF_MODE_LABELS = {
-        "Conversation": "Answer a few questions (chat to the AI to build brief)",
-        "Paste/Upload": "Got a brief document or notes file? Upload a doc",
-        "Form": "Guided brief (fill in the form)",
+        "Conversation": "Answer a few questions",
+        "Paste/Upload": "Upload a doc",
+        "Form": "Fill in a form",
     }
     BRIEF_MODE_HELP = {
-        "Conversation": "Recommended. Answer 3–6 questions and the brief will fill itself.",
-        "Paste/Upload": "Paste a ticket/Slack thread/bullets, or upload a file, then extract.",
-        "Form": "Fill in the brief fields directly (fastest for experienced users).",
+        "Conversation": "Answer 3–6 questions and the brief will fill itself.",
+        "Paste/Upload": "Paste a ticket/Slack thread/bullets, or upload a file.",
+        "Form": "Fill in the brief fields directly.",
     }
 
     # Ensure stored state is always a valid option.
