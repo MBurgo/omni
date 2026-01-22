@@ -113,13 +113,13 @@ OBJECTIVES = [
         "label": "I want to do customer\nresearch using AI personas",
         "tools": [
             {
-                "label": "Stress test creative using the AI Focus Panel",
-                "page": "pages/05_Pressure_test_creative.py",
+                "label": "Ask questions to AI Personas",
+                "page": "pages/03_Ask_a_persona.py",
                 "state": None,
             },
             {
-                "label": "Ask questions to AI Personas",
-                "page": "pages/03_Ask_a_persona.py",
+                "label": "Stress test creative using the AI Focus Panel",
+                "page": "pages/05_Pressure_test_creative.py",
                 "state": None,
             },
         ],
