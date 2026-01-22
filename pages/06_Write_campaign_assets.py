@@ -425,9 +425,9 @@ def render_generate() -> None:
     brief_mode_label = st.radio(
         "Brief mode",
         options=[
-            "Answer a few questions (recommended)",
-            "Paste notes or upload a brief",
-            "Guided brief (form)",
+            "Guided brief (fill in the form)",
+            "Answer a few questions (chat to the AI to build brief)",
+            "Got a brief document or notes file? Upload a doc",
         ],
         horizontal=True,
         key="cw_brief_mode",
@@ -435,9 +435,9 @@ def render_generate() -> None:
     )
 
     BRIEF_MODE_HELP = {
-        "Answer a few questions (recommended)": "Answer 3–6 questions and the brief will fill itself.",
+        "Answer a few questions": "Answer 3–6 questions and the brief will fill itself.",
         "Paste notes or upload a brief": "Paste a ticket/Slack thread/bullets, or upload a file, then extract.",
-        "Guided brief (form)": "Fill in the brief fields directly (fastest for experienced users).",
+        "Guided brief form": "Fill in the brief fields directly (fastest for experienced users).",
     }
     st.caption(BRIEF_MODE_HELP.get(brief_mode_label, ""))
 
