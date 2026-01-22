@@ -139,7 +139,7 @@ OBJECTIVES = [
                 "state": {"copywriter_mode": "adapt"},
             },
             {
-                "label": "Guided campaign flow from scratch",
+                "label": "Guided campaign flow from scratch (BETA, not complete)",
                 "page": "pages/08_Campaign_pack_wizard.py",
                 # Reset wizard state so it opens "from scratch" even if used previously.
                 "state": {
