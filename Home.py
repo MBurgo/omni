@@ -113,13 +113,13 @@ OBJECTIVES = [
         "label": "I want to do customer\nresearch using AI personas",
         "tools": [
             {
-                "label": "Ask questions to AI Personas",
-                "page": "pages/03_Ask_a_persona.py",
+                "label": "Stress test creative using the AI Focus Panel",
+                "page": "pages/05_Pressure_test_creative.py",
                 "state": None,
             },
             {
-                "label": "Stress test creative using the AI Focus Panel",
-                "page": "pages/05_Pressure_test_creative.py",
+                "label": "Ask questions to AI Personas",
+                "page": "pages/03_Ask_a_persona.py",
                 "state": None,
             },
         ],
@@ -137,6 +137,20 @@ OBJECTIVES = [
                 "label": "Adapt existing assets for a new market",
                 "page": "pages/06_Write_campaign_assets.py",
                 "state": {"copywriter_mode": "adapt"},
+            },
+            {
+                "label": "Guided campaign flow from scratch",
+                "page": "pages/08_Campaign_pack_wizard.py",
+                # Reset wizard state so it opens "from scratch" even if used previously.
+                "state": {
+                    "wiz_brief": None,
+                    "wiz_selected_opp": None,
+                    "wiz_hook": "",
+                    "wiz_details": "",
+                    "wiz_draft": "",
+                    "wiz_focus": None,
+                    "wiz_pack": "",
+                },
             },
         ],
     },
