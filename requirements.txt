@@ -11,3 +11,4 @@ google-search-results
 pytrends
 lxml
 pytz
+pypdf

@@ -4,6 +4,11 @@ import streamlit as st
 
 from engines.audience import focus_group_debate
 from engines.personas import Persona, load_personas
+from model_registry import (
+    DEFAULT_GEMINI_MODEL,
+    GEMINI_MODELS_RECOMMENDED,
+    OPENAI_CHAT_MODELS,
+)
 from storage.store import save_artifact
 from ui.branding import apply_branding
 from ui.layout import hub_nav
@@ -11,8 +16,45 @@ from ui.seed import set_copywriter_seed
 
 
 def _short_persona_label(p: Persona) -> str:
-    """Compact persona label for dropdowns (matches screenshot style)."""
+    """Compact persona label for dropdowns."""
     return f"{p.name} ({p.segment_label})"
+
+
+def _persona_quick_facts(p: Persona) -> str:
+    core = p.core or {}
+    bt = core.get("behavioural_traits") or {}
+
+    def _v(x: object) -> str:
+        return str(x).strip() if x is not None else ""
+
+    age = _v(core.get("age"))
+    location = _v(core.get("location"))
+    occupation = _v(core.get("occupation"))
+    income = _v(core.get("income"))
+    risk = _v(bt.get("risk_tolerance"))
+    exp = _v(bt.get("investment_experience"))
+    decision = _v(core.get("decision_making"))
+    narrative = _v(core.get("narrative"))
+
+    lines = []
+    if age:
+        lines.append(f"- **Age:** {age}")
+    if location:
+        lines.append(f"- **Location:** {location}")
+    if occupation:
+        lines.append(f"- **Occupation:** {occupation}")
+    if income:
+        lines.append(f"- **Income:** {income}")
+    if risk:
+        lines.append(f"- **Risk tolerance:** {risk}")
+    if exp:
+        lines.append(f"- **Experience:** {exp}")
+    if decision:
+        lines.append(f"- **Decision style:** {decision}")
+    if narrative:
+        lines.append(f"- **Narrative:** {narrative}")
+
+    return "\n".join(lines) if lines else "_No details available._"
 
 
 st.set_page_config(
@@ -83,23 +125,48 @@ scan their arguments for insights. Use this to pressure test headlines, emails, 
     unsafe_allow_html=True,
 )
 
+# --- Inputs (segment-first) ---
+seg_labels = [str(s.get("label") or s.get("id") or "Unknown") for s in (segments or [])]
+if not seg_labels:
+    seg_labels = sorted({p.segment_label for p in personas})
 
-# --- Inputs ---
+st.session_state.setdefault("pt_segment", seg_labels[0] if seg_labels else "")
+
+segment_label = st.selectbox(
+    "Persona segment (age + investor type)",
+    options=seg_labels,
+    key="pt_segment",
+    help="Pick the audience slice first. You can then choose the Believer and Skeptic personas within that segment.",
+)
+
+filtered_personas = [p for p in personas if p.segment_label == segment_label] or personas
+filtered_uids = [p.uid for p in filtered_personas]
+
+# Ensure stored selections are valid for the current filter.
+if st.session_state.get("pt_believer_uid") not in filtered_uids:
+    st.session_state["pt_believer_uid"] = filtered_uids[0]
+if st.session_state.get("pt_skeptic_uid") not in filtered_uids:
+    st.session_state["pt_skeptic_uid"] = filtered_uids[1] if len(filtered_uids) > 1 else filtered_uids[0]
+
 col1, col2, col3 = st.columns([2, 2, 1], gap="large")
 with col1:
     believer_uid = st.selectbox(
         "Believer",
-        options=[p.uid for p in personas],
-        index=0,
+        options=filtered_uids,
+        key="pt_believer_uid",
         format_func=lambda uid: _short_persona_label(uid_to_p[uid]),
     )
+    with st.expander("Believer details", expanded=False):
+        st.markdown(_persona_quick_facts(uid_to_p[believer_uid]))
 with col2:
     skeptic_uid = st.selectbox(
         "Skeptic",
-        options=[p.uid for p in personas],
-        index=1 if len(personas) > 1 else 0,
+        options=filtered_uids,
+        key="pt_skeptic_uid",
         format_func=lambda uid: _short_persona_label(uid_to_p[uid]),
     )
+    with st.expander("Skeptic details", expanded=False):
+        st.markdown(_persona_quick_facts(uid_to_p[skeptic_uid]))
 with col3:
     copy_type = st.selectbox(
         "Copy type",
@@ -133,19 +200,13 @@ with st.expander("Long copy settings", expanded=False):
 # --- Models ---
 colA, colB, colC, colD = st.columns([1, 1, 1, 0.35], gap="large")
 with colA:
-    model = st.selectbox("Debate model", options=["gpt-4.1", "o3", "gpt-4o", "gpt-4o-mini"], index=0)
+    model = st.selectbox("Debate model", options=OPENAI_CHAT_MODELS, index=0)
 with colB:
-    brief_model = st.selectbox("Brief extraction model", options=["gpt-4.1", "o3", "gpt-4o-mini", "gpt-4o"], index=0)
+    brief_model = st.selectbox("Brief extraction model", options=OPENAI_CHAT_MODELS, index=3)
 with colC:
     _moderator_choice = st.selectbox(
         "Moderator model",
-        options=[
-            "gemini-2.5-pro",
-            "gemini-2.5-flash",
-            "gemini-1.5-pro",
-            "gemini-1.5-flash",
-            "Custom…",
-        ],
+        options=[*GEMINI_MODELS_RECOMMENDED, "Custom…"],
         index=0,
         help="Gemini is preferred for the moderator. If Gemini isn't configured, the app falls back to OpenAI.",
     )
@@ -153,9 +214,9 @@ with colC:
     if _moderator_choice == "Custom…":
         moderator_model = st.text_input(
             "Custom Gemini model id",
-            value=st.session_state.get("moderator_model_custom", "gemini-2.5-pro"),
+            value=st.session_state.get("moderator_model_custom", DEFAULT_GEMINI_MODEL),
             help="Paste the exact model id your Google API key has access to.",
-        ).strip() or "gemini-2.5-pro"
+        ).strip() or DEFAULT_GEMINI_MODEL
         st.session_state["moderator_model_custom"] = moderator_model
     else:
         moderator_model = _moderator_choice
@@ -200,6 +261,7 @@ if run:
         metadata={
             "believer": believer.name,
             "skeptic": skeptic.name,
+            "segment": segment_label,
             "copy_type": copy_type,
             "model": model,
             "brief_model": brief_model,

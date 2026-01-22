@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 
 import streamlit as st
 
+from model_registry import DEFAULT_GEMINI_MODEL, DEFAULT_OPENAI_MODEL
 from utils import get_gemini_client, get_openai_client
 
 
@@ -18,21 +19,24 @@ def extract_json_object(text: str) -> Optional[Dict[str, Any]]:
         return None
     blob = text[start : end + 1]
     try:
-        return json.loads(blob)
+        obj = json.loads(blob)
+        return obj if isinstance(obj, dict) else None
     except Exception:
         return None
 
 
 def query_openai(
     messages: List[Dict[str, str]],
-    model: str = "gpt-4.1",
+    model: str = DEFAULT_OPENAI_MODEL,
     temperature: float = 0.7,
     response_format: Optional[Dict[str, Any]] = None,
     max_tokens: Optional[int] = None,
 ) -> str:
     client = get_openai_client()
     if client is None:
-        return "Error: OpenAI client not configured. Add openai.api_key to Streamlit secrets or set OPENAI_API_KEY."
+        return (
+            "Error: OpenAI client not configured. Add openai.api_key to Streamlit secrets or set OPENAI_API_KEY."
+        )
 
     try:
         kwargs: Dict[str, Any] = {"model": model, "messages": messages, "temperature": temperature}
@@ -71,7 +75,7 @@ def parse_json_object(text: str) -> Optional[Dict[str, Any]]:
         return extract_json_object(cleaned)
 
 
-def query_gemini(prompt: str, model_name: str = "gemini-1.5-pro") -> str:
+def query_gemini(prompt: str, model_name: str = DEFAULT_GEMINI_MODEL) -> str:
     """Simple Gemini helper (single prompt)."""
     return query_gemini_chat(
         system_instruction="",
@@ -87,7 +91,7 @@ def query_gemini_chat(
     *,
     system_instruction: str,
     user_prompt: str,
-    model_name: str = "gemini-1.5-pro",
+    model_name: str = DEFAULT_GEMINI_MODEL,
     temperature: float = 0.7,
     max_output_tokens: int = 4096,
     expect_json: bool = False,
@@ -102,7 +106,7 @@ def query_gemini_chat(
         # Fallback to OpenAI
         return query_openai(
             [{"role": "system", "content": system_instruction}, {"role": "user", "content": user_prompt}],
-            model="gpt-4.1",
+            model=DEFAULT_OPENAI_MODEL,
         )
 
     # Safety settings (avoid overly aggressive blocks for marketing copy)
@@ -126,12 +130,12 @@ def query_gemini_chat(
             response_mime_type="application/json" if expect_json else "text/plain",
         )
 
-        model = gemini.GenerativeModel(model_name=model_name, system_instruction=system_instruction or "")
+        model = gemini.GenerativeModel(model_name, system_instruction=system_instruction or "")
         resp = model.generate_content(user_prompt, generation_config=gen_config, safety_settings=safety_settings)
         return (getattr(resp, "text", "") or "").strip()
     except Exception as e:
         st.warning(f"Gemini error: {e}. Falling back to OpenAI.")
         return query_openai(
             [{"role": "system", "content": system_instruction}, {"role": "user", "content": user_prompt}],
-            model="gpt-4.1",
+            model=DEFAULT_OPENAI_MODEL,
         )

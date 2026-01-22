@@ -170,7 +170,7 @@ with TAB3:
                     participant_n_words=450,
                     extract_brief=True,
                     model="gpt-4.1",
-                    moderator_model="gemini-1.5-pro",
+                    moderator_model="gemini-2.5-pro",
                 )
                 st.session_state.wiz_focus = out
                 status.update(label="Validation complete", state="complete", expanded=False)

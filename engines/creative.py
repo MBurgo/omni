@@ -6,6 +6,11 @@ from textwrap import dedent
 from typing import Any, Dict, List, Optional, Tuple
 
 from engines.llm import parse_json_object, query_gemini_chat, query_openai, sanitize_json_text
+from model_registry import (
+    DEFAULT_GEMINI_CHEAP_MODEL,
+    DEFAULT_GEMINI_FAST_MODEL,
+    DEFAULT_GEMINI_MODEL,
+)
 
 
 MAX_OUTPUT_TOKENS = 4096
@@ -249,7 +254,7 @@ def generate_copy_with_plan(
     length_choice: str,
     provider: str = "OpenAI",
     openai_model: str = "gpt-4.1",
-    gemini_model: str = "gemini-1.5-pro",
+    gemini_model: str = DEFAULT_GEMINI_MODEL,
 ) -> Dict[str, str]:
     """Generate copy and an internal plan (outline).
 
@@ -322,7 +327,7 @@ def generate_copy(
         length_choice=length_choice,
         provider="OpenAI",
         openai_model=model,
-        gemini_model="gemini-1.5-pro",
+        gemini_model=DEFAULT_GEMINI_MODEL,
     )
     return (out.get("copy") or "").strip()
 
@@ -338,7 +343,7 @@ def rewrite_with_traits_preserve_structure(
     extra_instructions: str = "",
     provider: str = "OpenAI",
     openai_model: str = "gpt-4.1",
-    gemini_model: str = "gemini-1.5-pro",
+    gemini_model: str = DEFAULT_GEMINI_MODEL,
 ) -> Dict[str, str]:
     """Rewrite an existing draft using the current trait rules.
 
@@ -405,7 +410,7 @@ def revise_copy_goal(
     extra_notes: str = "",
     provider: str = "OpenAI",
     openai_model: str = "gpt-4.1",
-    gemini_model: str = "gemini-1.5-pro",
+    gemini_model: str = DEFAULT_GEMINI_MODEL,
 ) -> str:
     sys_msg = dedent(
         f"""
@@ -462,7 +467,7 @@ def qa_and_patch_copy(
     traits: Dict[str, int],
     provider: str = "OpenAI",
     openai_model: str = "gpt-4o-mini",
-    gemini_model: str = "gemini-1.5-flash",
+    gemini_model: str = DEFAULT_GEMINI_CHEAP_MODEL,
 ) -> Dict[str, str]:
     """Run a short QA loop.
 
@@ -576,7 +581,7 @@ def generate_variants(
     n: int = 5,
     provider: str = "OpenAI",
     openai_model: str = "gpt-4o-mini",
-    gemini_model: str = "gemini-1.5-flash",
+    gemini_model: str = DEFAULT_GEMINI_CHEAP_MODEL,
 ) -> Dict[str, Any]:
     """Generate headline/subject + CTA variants.
 
@@ -636,7 +641,7 @@ def adapt_copy(
     brief_notes: str = "",
     provider: str = "OpenAI",
     openai_model: str = "gpt-4.1",
-    gemini_model: str = "gemini-1.5-pro",
+    gemini_model: str = DEFAULT_GEMINI_MODEL,
 ) -> str:
     sys_msg = dedent(
         f"""

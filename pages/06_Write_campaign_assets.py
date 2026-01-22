@@ -1,5 +1,13 @@
-import streamlit as st
+from __future__ import annotations
 
+import io
+from typing import Any, Dict, Optional
+
+import streamlit as st
+from bs4 import BeautifulSoup
+from docx import Document
+
+from engines.briefs import brief_builder_turn, extract_campaign_brief_from_text
 from engines.creative import (
     COUNTRY_RULES,
     LENGTH_RULES,
@@ -10,11 +18,84 @@ from engines.creative import (
     revise_copy_goal,
     rewrite_with_traits_preserve_structure,
 )
+from model_registry import (
+    DEFAULT_GEMINI_CHEAP_MODEL,
+    DEFAULT_GEMINI_MODEL,
+    DEFAULT_OPENAI_FAST_MODEL,
+    GEMINI_MODELS_RECOMMENDED,
+    OPENAI_CHAT_MODELS,
+)
 from storage.store import save_artifact
 from ui.branding import apply_branding
 from ui.export import create_docx_from_markdown
 from ui.layout import hub_nav
 from ui.seed import set_headline_test_seed
+
+try:
+    from pypdf import PdfReader
+except Exception:  # pragma: no cover
+    PdfReader = None  # type: ignore
+
+
+def _safe_str(x: Any) -> str:
+    return str(x).strip() if x is not None else ""
+
+
+def extract_text_from_upload(upload: Any) -> str:
+    """Extract text from a Streamlit UploadedFile (txt/docx/html/pdf)."""
+    if upload is None:
+        return ""
+
+    name = (getattr(upload, "name", "") or "").lower()
+    data = upload.getvalue() if hasattr(upload, "getvalue") else b""
+
+    if name.endswith(".txt"):
+        try:
+            return data.decode("utf-8")
+        except Exception:
+            return data.decode("latin-1", errors="ignore")
+
+    if name.endswith(".docx"):
+        try:
+            doc = Document(io.BytesIO(data))
+            parts = [p.text for p in doc.paragraphs if (p.text or "").strip()]
+            return "\n".join(parts).strip()
+        except Exception:
+            return ""
+
+    if name.endswith((".html", ".htm")):
+        try:
+            html = data.decode("utf-8", errors="ignore")
+            soup = BeautifulSoup(html, "html.parser")
+            # Keep line breaks a bit readable
+            return soup.get_text("\n").strip()
+        except Exception:
+            return ""
+
+    if name.endswith(".pdf") and PdfReader is not None:
+        try:
+            reader = PdfReader(io.BytesIO(data))
+            parts = []
+            for page in reader.pages:
+                parts.append(page.extract_text() or "")
+            return "\n".join([p for p in parts if p.strip()]).strip()
+        except Exception:
+            return ""
+
+    return ""
+
+
+def _apply_extracted_brief_to_state(brief: Dict[str, str]) -> None:
+    """Map extracted brief keys into Streamlit widget keys."""
+    st.session_state["cw_brief_hook"] = _safe_str(brief.get("hook"))
+    st.session_state["cw_brief_details"] = _safe_str(brief.get("details"))
+    st.session_state["cw_brief_offer_price"] = _safe_str(brief.get("offer_price"))
+    st.session_state["cw_brief_retail_price"] = _safe_str(brief.get("retail_price"))
+    st.session_state["cw_brief_offer_term"] = _safe_str(brief.get("offer_term"))
+    st.session_state["cw_brief_reports"] = _safe_str(brief.get("reports"))
+    st.session_state["cw_brief_stocks"] = _safe_str(brief.get("stocks_to_tease"))
+    st.session_state["cw_brief_quotes_news"] = _safe_str(brief.get("quotes_news"))
+
 
 st.set_page_config(
     page_title="Copywriter",
@@ -32,6 +113,10 @@ seed_details = st.session_state.get("seed_details", "")
 seed_creative = st.session_state.get("seed_creative", "")
 seed_source = st.session_state.get("seed_source", "")
 
+seed_md = st.session_state.get("seed_metadata")
+seed_md = seed_md if isinstance(seed_md, dict) else {}
+
+# Output/session scaffolding
 st.session_state.setdefault("generated_copy", "")
 st.session_state.setdefault("generated_plan", "")
 st.session_state.setdefault("last_generate_settings", {})
@@ -39,7 +124,7 @@ st.session_state.setdefault("copywriter_variants", None)
 st.session_state.setdefault("revised_copy", "")
 st.session_state.setdefault("revised_plan", "")
 st.session_state.setdefault("adapted_copy", "")
-st.session_state.setdefault("adapted_plan", "")
+
 # Default copywriter settings (main-page widgets)
 st.session_state.setdefault("cw_trait_urgency", 8)
 st.session_state.setdefault("cw_trait_data", 7)
@@ -51,17 +136,56 @@ st.session_state.setdefault("cw_trait_fomo", 7)
 st.session_state.setdefault("cw_trait_repetition", 5)
 st.session_state.setdefault("cw_country", "Australia")
 st.session_state.setdefault("cw_provider", "OpenAI")
-st.session_state.setdefault("cw_openai_model", "gpt-4.1")
-st.session_state.setdefault("cw_gemini_model", "gemini-1.5-pro")
+st.session_state.setdefault("cw_openai_model", OPENAI_CHAT_MODELS[0])
+st.session_state.setdefault("cw_gemini_model", DEFAULT_GEMINI_MODEL)
 st.session_state.setdefault("cw_auto_qa", True)
 
+# Brief fields (explicit keys so they can be populated by upload/extraction/dialogue)
+st.session_state.setdefault("cw_brief_hook", "")
+st.session_state.setdefault("cw_brief_details", "")
+st.session_state.setdefault("cw_brief_offer_price", "")
+st.session_state.setdefault("cw_brief_retail_price", "")
+st.session_state.setdefault("cw_brief_offer_term", "")
+st.session_state.setdefault("cw_brief_reports", "")
+st.session_state.setdefault("cw_brief_stocks", "")
+st.session_state.setdefault("cw_brief_quotes_news", "")
 
- 
+# Only apply seeds if the current brief fields are empty (avoid overwriting work-in-progress).
+if seed_hook and not st.session_state.get("cw_brief_hook"):
+    st.session_state["cw_brief_hook"] = seed_hook
+if seed_details and not st.session_state.get("cw_brief_details"):
+    st.session_state["cw_brief_details"] = seed_details
+
+# Apply seed metadata if advanced fields empty
+if seed_md and not any(
+    [
+        st.session_state.get("cw_brief_offer_price"),
+        st.session_state.get("cw_brief_retail_price"),
+        st.session_state.get("cw_brief_offer_term"),
+        st.session_state.get("cw_brief_reports"),
+        st.session_state.get("cw_brief_stocks"),
+        st.session_state.get("cw_brief_quotes_news"),
+    ]
+):
+    st.session_state["cw_brief_offer_price"] = _safe_str(seed_md.get("offer_price"))
+    st.session_state["cw_brief_retail_price"] = _safe_str(seed_md.get("retail_price"))
+    st.session_state["cw_brief_offer_term"] = _safe_str(seed_md.get("offer_term"))
+    st.session_state["cw_brief_reports"] = _safe_str(seed_md.get("reports"))
+    st.session_state["cw_brief_stocks"] = _safe_str(seed_md.get("stocks_to_tease"))
+    st.session_state["cw_brief_quotes_news"] = _safe_str(seed_md.get("quotes_news"))
+
+# Dialogue + paste/upload state
+st.session_state.setdefault("cw_brief_mode", "Form")
+st.session_state.setdefault("cw_unstructured_input", "")
+st.session_state.setdefault("cw_last_extract_raw", "")
+st.session_state.setdefault("cw_brief_chat", [])
+st.session_state.setdefault("cw_brief_chat_ready", False)
 
 # Hero
 st.markdown("<div class='page-title'>Brief our AI copywriter to deliver campaign assets</div>", unsafe_allow_html=True)
 st.markdown(
-    "<div class='page-subtitle'>Generate campaign copy from a hook + brief, revise an existing draft, or localise copy from another market. Tip: You can expand the 'Copy Settings' accordion to dial up/down copy traits on a granular level.</div>", unsafe_allow_html=True,
+    "<div class='page-subtitle'>Generate campaign copy from a hook + brief, revise an existing draft, or localise copy from another market. Tip: You can expand the 'Copy settings' accordion to dial up/down copy traits on a granular level.</div>",
+    unsafe_allow_html=True,
 )
 
 if seed_source:
@@ -106,19 +230,43 @@ with st.expander("Copy settings", expanded=False):
         provider = st.radio("Provider", options=["OpenAI", "Gemini"], index=0, horizontal=True, key="cw_provider")
 
         # Keep model selections stable even when the other provider is selected.
-        openai_model = st.session_state.get("cw_openai_model", "gpt-4.1")
-        gemini_model = st.session_state.get("cw_gemini_model", "gemini-1.5-pro")
-
         if provider == "OpenAI":
-            openai_model = st.selectbox("OpenAI model", options=["gpt-4.1", "o3", "gpt-4o", "gpt-4o-mini"], index=0, key="cw_openai_model")
+            openai_model = st.selectbox(
+                "OpenAI model",
+                options=OPENAI_CHAT_MODELS,
+                index=0,
+                key="cw_openai_model",
+            )
+
+            # If Gemini was set to Custom… previously, use the custom id when needed.
+            gemini_choice = st.session_state.get("cw_gemini_model", DEFAULT_GEMINI_MODEL)
+            if gemini_choice == "Custom…":
+                gemini_choice = st.session_state.get("cw_gemini_model_custom", DEFAULT_GEMINI_MODEL)
+            gemini_model = gemini_choice
         else:
-            gemini_model = st.selectbox(
+            sel = st.selectbox(
                 "Gemini model",
-                options=["gemini-1.5-pro", "gemini-1.5-flash"],
+                options=[*GEMINI_MODELS_RECOMMENDED, "Custom…"],
                 index=0,
                 key="cw_gemini_model",
                 help="Requires google.api_key in Streamlit secrets (falls back to OpenAI if missing).",
             )
+
+            if sel == "Custom…":
+                gemini_model = (
+                    st.text_input(
+                        "Custom Gemini model id",
+                        value=st.session_state.get("cw_gemini_model_custom", DEFAULT_GEMINI_MODEL),
+                        key="cw_gemini_model_custom",
+                        help="Paste the exact model id your Google API key has access to.",
+                    )
+                    .strip()
+                    or DEFAULT_GEMINI_MODEL
+                )
+            else:
+                gemini_model = sel
+
+            openai_model = st.session_state.get("cw_openai_model", OPENAI_CHAT_MODELS[0])
 
         st.markdown("### Quality")
         auto_qa = st.checkbox(
@@ -128,9 +276,7 @@ with st.expander("Copy settings", expanded=False):
             help="Checks structure, disclaimer, length, and compliance; auto-fixes if needed.",
         )
 
-
 # Tabs
-#
 # Other pages set st.session_state["copywriter_mode"] to choose the first visible tab.
 mode = (st.session_state.get("copywriter_mode") or "generate").lower().strip()
 
@@ -144,58 +290,216 @@ else:
 # --- Generate ---
 with TAB_GEN:
     st.subheader("Campaign brief")
+
     col1, col2, col3 = st.columns([1, 1, 1])
     with col1:
-        copy_type = st.selectbox("Format", options=["Email", "Ads", "Sales Page"], index=0)
+        copy_type = st.selectbox("Format", options=["Email", "Ads", "Sales Page"], index=0, key="cw_copy_type")
     with col2:
-        length_choice = st.selectbox("Length", options=list(LENGTH_RULES.keys()), index=1)
+        length_choice = st.selectbox("Length", options=list(LENGTH_RULES.keys()), index=1, key="cw_length_choice")
     with col3:
         st.write("")
 
-    seed_md = st.session_state.get("seed_metadata")
-    seed_md = seed_md if isinstance(seed_md, dict) else {}
-
-    hook = st.text_area(
-        "Hook",
-        value=seed_hook,
-        height=80,
-        placeholder="e.g., The ASX theme investors are missing...",
+    st.markdown("#### Start with")
+    brief_mode = st.radio(
+        "Start mode",
+        options=["Conversation", "Paste/Upload", "Form"],
+        horizontal=True,
+        key="cw_brief_mode",
+        label_visibility="collapsed",
     )
 
-    details = st.text_area(
-        "Offer / context / notes",
-        value=seed_details,
-        height=180,
-        placeholder="Product / offer details, audience context, must-say info...",
-    )
+    # ---- Conversation mode ----
+    if brief_mode == "Conversation":
+        top = st.columns([1, 1, 2])
+        with top[0]:
+            if st.button("Reset conversation", type="secondary"):
+                st.session_state["cw_brief_chat"] = []
+                st.session_state["cw_brief_chat_ready"] = False
+                st.rerun()
+        with top[1]:
+            if st.button("Clear brief fields", type="secondary"):
+                _apply_extracted_brief_to_state({k: "" for k in ["hook","details","offer_price","retail_price","offer_term","reports","stocks_to_tease","quotes_news"]})
+                st.rerun()
+        with top[2]:
+            st.caption("Answer a few quick questions. The brief fields below will auto-fill as you go.")
 
-    with st.expander("Advanced brief (optional)", expanded=False):
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            offer_price = st.text_input("Special offer price", value=str(seed_md.get("offer_price") or ""))
-        with c2:
-            retail_price = st.text_input("Retail price", value=str(seed_md.get("retail_price") or ""))
-        with c3:
-            offer_term = st.text_input("Subscription term", value=str(seed_md.get("offer_term") or ""))
+        # Initialise with an opening assistant prompt if empty
+        if not st.session_state.get("cw_brief_chat"):
+            st.session_state["cw_brief_chat"] = [
+                {
+                    "role": "assistant",
+                    "content": "Tell me what you’re promoting and who it’s for. (One sentence is fine.)",
+                }
+            ]
 
-        reports = st.text_area("Included reports", value=str(seed_md.get("reports") or ""), height=100)
-        stocks_to_tease = st.text_input("Stocks to tease (optional)", value=str(seed_md.get("stocks_to_tease") or ""))
-        quotes_news = st.text_area("Quotes / timely news (optional)", value=str(seed_md.get("quotes_news") or ""), height=110)
+        for m in st.session_state.get("cw_brief_chat") or []:
+            role = m.get("role") or "user"
+            content = m.get("content") or ""
+            with st.chat_message(role):
+                st.markdown(content)
+
+        user_msg = st.chat_input("Type your answer…")
+        if user_msg:
+            st.session_state["cw_brief_chat"].append({"role": "user", "content": user_msg})
+
+            current_brief = {
+                "hook": st.session_state.get("cw_brief_hook", ""),
+                "details": st.session_state.get("cw_brief_details", ""),
+                "offer_price": st.session_state.get("cw_brief_offer_price", ""),
+                "retail_price": st.session_state.get("cw_brief_retail_price", ""),
+                "offer_term": st.session_state.get("cw_brief_offer_term", ""),
+                "reports": st.session_state.get("cw_brief_reports", ""),
+                "stocks_to_tease": st.session_state.get("cw_brief_stocks", ""),
+                "quotes_news": st.session_state.get("cw_brief_quotes_news", ""),
+            }
+
+            with st.spinner("Updating brief…"):
+                turn = brief_builder_turn(
+                    chat_history=st.session_state.get("cw_brief_chat") or [],
+                    current_brief=current_brief,
+                    provider=provider,
+                    openai_model=DEFAULT_OPENAI_FAST_MODEL,
+                    gemini_model=gemini_model or DEFAULT_GEMINI_MODEL,
+                    copy_type=copy_type,
+                    length_choice=length_choice,
+                    country=country,
+                )
+
+            if turn.get("error"):
+                st.warning(turn.get("error"))
+                if turn.get("raw"):
+                    with st.expander("Debug: raw model output", expanded=False):
+                        st.code(turn.get("raw"), language="text")
+            else:
+                brief = turn.get("brief") or {}
+                _apply_extracted_brief_to_state(brief)
+
+                next_q = (turn.get("next_question") or "").strip() or "Anything else that must be included?"
+                st.session_state["cw_brief_chat_ready"] = bool(turn.get("is_ready"))
+
+                if next_q.lower() != "ready":
+                    st.session_state["cw_brief_chat"].append({"role": "assistant", "content": next_q})
+                else:
+                    st.session_state["cw_brief_chat"].append(
+                        {"role": "assistant", "content": "Ready. You can generate copy now, or tweak the brief fields below."}
+                    )
+
+            st.rerun()
+
+        if st.session_state.get("cw_brief_chat_ready"):
+            st.success("Brief looks ready. Generate copy whenever you’re happy with the fields below.")
+
+    # ---- Paste/Upload mode ----
+    elif brief_mode == "Paste/Upload":
+        st.caption("Paste anything you have (ticket, Slack thread, bullets) or upload a file — the tool will extract a usable brief.")
+
+        upload = st.file_uploader(
+            "Upload (optional)",
+            type=["txt", "docx", "html", "htm", "pdf"],
+            key="cw_brief_upload",
+        )
+
+        if upload is not None:
+            extracted = extract_text_from_upload(upload)
+            if extracted and st.session_state.get("cw_last_upload_name") != getattr(upload, "name", ""):
+                st.session_state["cw_last_upload_name"] = getattr(upload, "name", "")
+                st.session_state["cw_unstructured_input"] = extracted
+
+        st.text_area(
+            "Brief / notes",
+            key="cw_unstructured_input",
+            height=180,
+            placeholder="Paste notes here…",
+        )
+
+        cols = st.columns([1, 1, 2])
+        with cols[0]:
+            do_extract = st.button("Extract brief fields", type="primary")
+        with cols[1]:
+            if st.button("Clear input", type="secondary"):
+                st.session_state["cw_unstructured_input"] = ""
+                st.rerun()
+        with cols[2]:
+            st.write("")
+
+        if do_extract:
+            src = (st.session_state.get("cw_unstructured_input") or "").strip()
+            if not src:
+                st.warning("Add some notes or upload a file first.")
+            else:
+                with st.spinner("Extracting…"):
+                    res = extract_campaign_brief_from_text(
+                        text=src,
+                        provider=provider,
+                        openai_model=DEFAULT_OPENAI_FAST_MODEL,
+                        gemini_model=gemini_model or DEFAULT_GEMINI_MODEL,
+                    )
+
+                st.session_state["cw_last_extract_raw"] = res.get("raw") or ""
+
+                if res.get("error"):
+                    st.warning(res.get("error"))
+                else:
+                    _apply_extracted_brief_to_state(res.get("brief") or {})
+                    st.success("Brief fields updated below.")
+
+                if st.session_state.get("cw_last_extract_raw"):
+                    with st.expander("Show extraction raw output", expanded=False):
+                        st.code(st.session_state.get("cw_last_extract_raw"), language="text")
+
+    # ---- Form mode (no extra UI) ----
+    else:
+        st.caption("Fill out the brief fields directly.")
+
+    # ---- Brief fields ----
+    show_fields_in_expander = brief_mode in {"Conversation", "Paste/Upload"}
+    fields_container = st.expander("Brief fields", expanded=True) if show_fields_in_expander else st.container()
+
+    with fields_container:
+        st.text_area(
+            "Hook",
+            key="cw_brief_hook",
+            height=80,
+            placeholder="e.g., The ASX theme investors are missing...",
+        )
+
+        st.text_area(
+            "Offer / context / notes",
+            key="cw_brief_details",
+            height=180,
+            placeholder="Product / offer details, audience context, must-say info...",
+        )
+
+        with st.expander("Advanced brief (optional)", expanded=False):
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                st.text_input("Special offer price", key="cw_brief_offer_price")
+            with c2:
+                st.text_input("Retail price", key="cw_brief_retail_price")
+            with c3:
+                st.text_input("Subscription term", key="cw_brief_offer_term")
+
+            st.text_area("Included reports", key="cw_brief_reports", height=100)
+            st.text_input("Stocks to tease (optional)", key="cw_brief_stocks")
+            st.text_area("Quotes / timely news (optional)", key="cw_brief_quotes_news", height=110)
 
     if st.button("Generate copy", type="primary"):
-        if not hook.strip() and not details.strip():
+        hook = st.session_state.get("cw_brief_hook", "")
+        details = st.session_state.get("cw_brief_details", "")
+
+        if not (hook or details):
             st.warning("Add a hook or some details.")
         else:
             with st.spinner("Writing..."):
                 brief = {
                     "hook": hook,
                     "details": details,
-                    "offer_price": offer_price,
-                    "retail_price": retail_price,
-                    "offer_term": offer_term,
-                    "reports": reports,
-                    "stocks_to_tease": stocks_to_tease,
-                    "quotes_news": quotes_news,
+                    "offer_price": st.session_state.get("cw_brief_offer_price", ""),
+                    "retail_price": st.session_state.get("cw_brief_retail_price", ""),
+                    "offer_term": st.session_state.get("cw_brief_offer_term", ""),
+                    "reports": st.session_state.get("cw_brief_reports", ""),
+                    "stocks_to_tease": st.session_state.get("cw_brief_stocks", ""),
+                    "quotes_news": st.session_state.get("cw_brief_quotes_news", ""),
                 }
 
                 out = generate_copy_with_plan(
@@ -212,7 +516,7 @@ with TAB_GEN:
                 draft = (out.get("copy") or "").strip()
                 plan = (out.get("plan") or "").strip()
 
-                qa_meta = {}
+                qa_meta: Dict[str, Any] = {}
                 if auto_qa:
                     qa = qa_and_patch_copy(
                         draft=draft,
@@ -221,8 +525,8 @@ with TAB_GEN:
                         length_choice=length_choice,
                         traits=traits,
                         provider=provider,
-                        openai_model="gpt-4o-mini",
-                        gemini_model="gemini-1.5-flash",
+                        openai_model=DEFAULT_OPENAI_FAST_MODEL,
+                        gemini_model=DEFAULT_GEMINI_CHEAP_MODEL,
                     )
                     draft = qa.get("copy") or draft
                     qa_meta = {"qa_status": qa.get("status"), "qa_critique": qa.get("critique")}
@@ -285,8 +589,8 @@ with TAB_GEN:
                         base_copy=st.session_state.generated_copy,
                         n=5,
                         provider=provider,
-                        openai_model="gpt-4o-mini",
-                        gemini_model="gemini-1.5-flash",
+                        openai_model=DEFAULT_OPENAI_FAST_MODEL,
+                        gemini_model=DEFAULT_GEMINI_CHEAP_MODEL,
                     )
                     st.session_state.copywriter_variants = v
         with cvar2:
@@ -347,7 +651,7 @@ with TAB_GEN:
                 revised = (out2.get("copy") or "").strip()
                 plan2 = (out2.get("plan") or "").strip()
 
-                qa_meta = {}
+                qa_meta2: Dict[str, Any] = {}
                 if auto_qa:
                     qa = qa_and_patch_copy(
                         draft=revised,
@@ -356,11 +660,11 @@ with TAB_GEN:
                         length_choice=length0,
                         traits=traits,
                         provider=provider,
-                        openai_model="gpt-4o-mini",
-                        gemini_model="gemini-1.5-flash",
+                        openai_model=DEFAULT_OPENAI_FAST_MODEL,
+                        gemini_model=DEFAULT_GEMINI_CHEAP_MODEL,
                     )
                     revised = qa.get("copy") or revised
-                    qa_meta = {"qa_status": qa.get("status"), "qa_critique": qa.get("critique")}
+                    qa_meta2 = {"qa_status": qa.get("status"), "qa_critique": qa.get("critique")}
 
                 st.session_state.generated_copy = revised
                 st.session_state.generated_plan = plan2
@@ -383,7 +687,7 @@ with TAB_GEN:
                         "openai_model": openai_model,
                         "gemini_model": gemini_model,
                         "traits": traits,
-                        **qa_meta,
+                        **qa_meta2,
                     },
                 )
 
@@ -469,7 +773,7 @@ with TAB_REVISE:
                     out = (out2.get("copy") or "").strip()
                     plan = (out2.get("plan") or "").strip()
 
-                qa_meta = {}
+                qa_meta3: Dict[str, Any] = {}
                 if auto_qa and method != "Goal-based edit":
                     qa = qa_and_patch_copy(
                         draft=out,
@@ -478,11 +782,11 @@ with TAB_REVISE:
                         length_choice=r_length,
                         traits=traits,
                         provider=provider,
-                        openai_model="gpt-4o-mini",
-                        gemini_model="gemini-1.5-flash",
+                        openai_model=DEFAULT_OPENAI_FAST_MODEL,
+                        gemini_model=DEFAULT_GEMINI_CHEAP_MODEL,
                     )
                     out = qa.get("copy") or out
-                    qa_meta = {"qa_status": qa.get("status"), "qa_critique": qa.get("critique")}
+                    qa_meta3 = {"qa_status": qa.get("status"), "qa_critique": qa.get("critique")}
 
                 st.session_state.revised_copy = out
                 st.session_state.revised_plan = plan
@@ -506,7 +810,7 @@ with TAB_REVISE:
                         "openai_model": openai_model,
                         "gemini_model": gemini_model,
                         "traits": traits,
-                        **qa_meta,
+                        **qa_meta3,
                     },
                 )
 
@@ -566,8 +870,8 @@ with TAB_ADAPT:
                         length_choice="Long (500-1500 words)",
                         traits=traits,
                         provider=provider,
-                        openai_model="gpt-4o-mini",
-                        gemini_model="gemini-1.5-flash",
+                        openai_model=DEFAULT_OPENAI_FAST_MODEL,
+                        gemini_model=DEFAULT_GEMINI_CHEAP_MODEL,
                     )
                     out = qa.get("copy") or out
 

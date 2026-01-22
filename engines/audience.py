@@ -6,6 +6,7 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 
 from engines.llm import extract_json_object, query_gemini, query_openai
+from model_registry import DEFAULT_GEMINI_MODEL
 from engines.personas import Persona
 
 
@@ -407,7 +408,7 @@ def focus_group_debate(
     extract_brief: bool = True,
     brief_model: str = "gpt-4o-mini",
     model: str = "gpt-4.1",
-    moderator_model: str = "gemini-1.5-pro",
+    moderator_model: str = DEFAULT_GEMINI_MODEL,
 ) -> Dict[str, Any]:
     """Run a Believer vs Skeptic debate and return structured outputs."""
 
